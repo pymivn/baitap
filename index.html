@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="coi-serviceworker.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PyTUI - Browser Python Environment</title>
+  <title>BaiTapPyMi - Browser Python Environment</title>
   
   <!-- SEO Meta Tags -->
   <meta name="description" content="A premium client-side Text User Interface (TUI) for running Python code directly in your browser without a backend using Pyodide and Web Workers.">
@@ -27,7 +28,7 @@
     <!-- Top Header -->
     <header id="tui-header">
       <div class="header-logo">
-        <span class="logo-icon"></span> PyTUI v1.0.0
+        <span class="logo-icon"></span> BaiTapPyMi v0.0.1
       </div>
       <div class="header-status">
         STATUS: <span id="status-indicator" class="status-ready">LOADING PYODIDE...</span>
@@ -49,7 +50,6 @@
           <span class="panel-title" id="explorer-title">📁 File Explorer</span>
           <div class="panel-actions">
             <button id="btn-new-file" title="New File" aria-label="Create new file">+</button>
-            <button id="btn-upload-file" title="Upload File" aria-label="Upload file from computer">↑</button>
           </div>
         </div>
         <div class="panel-body">
@@ -88,7 +88,7 @@
           </div>
           <div class="panel-body terminal-body" id="terminal-output" role="log" aria-live="polite">
             <!-- Loading screen inside terminal output initially -->
-            <div class="terminal-line system-line">Initializing PyTUI core engine...</div>
+            <div class="terminal-line system-line">Initializing BaiTapPyMi core engine...</div>
             <div class="terminal-line system-line">Downloading WebAssembly modules from CDN...</div>
             <div class="terminal-line system-line">Please wait while the Python runtime initializes in a Web Worker.</div>
           </div>
@@ -106,6 +106,7 @@
     <!-- Bottom Footer Status Bar -->
     <footer id="tui-footer">
       <div class="footer-item"><span class="shortcut">F5</span> Run</div>
+      <div class="footer-item"><span class="shortcut">F6</span> Test</div>
       <div class="footer-item"><span class="shortcut">Ctrl+L</span> Clear Terminal</div>
       <div class="footer-item"><span class="shortcut">Ctrl+N</span> New File</div>
       <div class="footer-item"><span class="shortcut">Ctrl+D</span> Delete File</div>
@@ -168,8 +169,6 @@
     </div>
   </div>
 
-  <!-- Hidden HTML File Input for Uploading files -->
-  <input type="file" id="file-upload-input" class="hidden" accept=".py,.txt">
 
   <!-- Main JavaScript File -->
   <script src="app.js"></script>

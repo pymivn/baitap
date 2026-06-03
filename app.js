@@ -1,7 +1,7 @@
-// PyTUI State Management
+// BaiTapPyMi State Management
 const STATE = {
   files: {
-    'main.py': `# Interactive Python TUI Demo\n# Press F5 or the Run button to execute.\n\nprint("=========================================")\nprint("Welcome to PyTUI browser-based IDE!")\nprint("=========================================")\n\nname = input("Enter your username: ")\nprint(f"Initializing profile for: {name}")\n\nfor i in range(1, 4):\n    print(f" -> Loading module {i}/3...")\n\nprint("Ready! Let's do some math.")\ntry:\n    val1 = int(input("Enter number A: "))\n    val2 = int(input("Enter number B: "))\n    print(f"Result: {val1} + {val2} = {val1 + val2}")\nexcept ValueError:\n    print("Error: Invalid number inputs.")\n\nprint("Goodbye!")\n`,
+    'main.py': `# Interactive Python TUI Demo\n# Press F5 or the Run button to execute.\n\nprint("=========================================")\nprint("Welcome to BaiTapPyMi browser-based IDE!")\nprint("=========================================")\n\n# Define an add function to pass diagnostics tests (F6)\ndef add(a, b):\n    return a + b\n\nname = input("Enter your username: ")\nprint(f"Initializing profile for: {name}")\n\nfor i in range(1, 4):\n    print(f" -> Loading module {i}/3...")\n\nprint("Ready! Let's do some math.")\ntry:\n    val1 = int(input("Enter number A: "))\n    val2 = int(input("Enter number B: "))\n    print(f"Result: {val1} + {val2} = {add(val1, val2)}")\nexcept ValueError:\n    print("Error: Invalid number inputs.")\n\nprint("Goodbye!")\n`,
     'utils.py': `def greet(name):\n    return f"Hello, {name} from utils.py!"\n\ndef fibonacci(n):\n    if n <= 0:\n        return []\n    elif n == 1:\n        return [0]\n    sequence = [0, 1]\n    while len(sequence) < n:\n        sequence.append(sequence[-1] + sequence[-2])\n    return sequence\n`,
     'data.txt': `Welcome to the virtual filesystem.\nYou can read this file using standard python read commands:\n\nwith open('data.txt') as f:\n    print(f.read())\n`
   },
@@ -11,6 +11,49 @@ const STATE = {
   crtEffect: false
 };
 
+// Hidden Diagnostics Tests Configuration
+const HIDDEN_TESTS = {
+  'main.py': `
+# Hidden tests script for main.py
+import main as solution
+
+# Assert function exists
+assert hasattr(solution, 'add'), "Function 'add' is missing in main.py. Define it as: def add(a, b): return a + b"
+
+# Validate calculations
+r1 = solution.add(5, 7)
+assert r1 == 12, f"Test Case 1 Failed: add(5, 7) returned {r1}, expected 12"
+
+r2 = solution.add(-3, 3)
+assert r2 == 0, f"Test Case 2 Failed: add(-3, 3) returned {r2}, expected 0"
+
+r3 = solution.add(10.5, 4.5)
+assert r3 == 15.0, f"Test Case 3 Failed: add(10.5, 4.5) returned {r3}, expected 15.0"
+`,
+  'utils.py': `
+# Hidden tests script for utils.py
+import utils as solution
+
+# Assert functions exist
+assert hasattr(solution, 'greet'), "Function 'greet' is missing in utils.py"
+assert hasattr(solution, 'fibonacci'), "Function 'fibonacci' is missing in utils.py"
+
+# Validate greet
+g = solution.greet("Alice")
+assert "Alice" in g, f"Test Case 1 Failed: greet('Alice') returned '{g}', expected it to contain 'Alice'"
+
+# Validate fibonacci series calculations
+f1 = solution.fibonacci(5)
+assert f1 == [0, 1, 1, 2, 3], f"Test Case 2 Failed: fibonacci(5) returned {f1}, expected [0, 1, 1, 2, 3]"
+
+f2 = solution.fibonacci(1)
+assert f2 == [0], f"Test Case 3 Failed: fibonacci(1) returned {f2}, expected [0]"
+
+f3 = solution.fibonacci(0)
+assert f3 == [], f"Test Case 4 Failed: fibonacci(0) returned {f3}, expected []"
+`
+};
+
 // UI Elements
 const els = {
   status: document.getElementById('status-indicator'),
@@ -18,6 +61,7 @@ const els = {
   activeFilename: document.getElementById('active-filename'),
   btnNewFile: document.getElementById('btn-new-file'),
   btnRun: document.getElementById('btn-run'),
+  btnTest: document.getElementById('btn-test'),
   btnStop: document.getElementById('btn-stop'),
   btnClearTerminal: document.getElementById('btn-clear-terminal'),
   codeEditor: document.getElementById('code-editor'),
@@ -33,7 +77,14 @@ const els = {
   dialogError: document.getElementById('dialog-error'),
   newFilenameInput: document.getElementById('new-filename-input'),
   btnDialogCancel: document.getElementById('btn-dialog-cancel'),
-  btnDialogCreate: document.getElementById('btn-dialog-create')
+  btnDialogCreate: document.getElementById('btn-dialog-create'),
+  dialogTestResults: document.getElementById('dialog-test-results'),
+  testTargetFilename: document.getElementById('test-target-filename'),
+  testRunningSpinner: document.getElementById('test-running-spinner'),
+  testResultsContainer: document.getElementById('test-results-container'),
+  testOutcomeTitle: document.getElementById('test-outcome-title'),
+  testOutcomeDetails: document.getElementById('test-outcome-details'),
+  btnCloseTestDialog: document.getElementById('btn-close-test-dialog')
 };
 
 // Shared memory for synchronous inputs
@@ -117,8 +168,9 @@ function handleWorkerMessage(e) {
         els.status.innerText = 'READY';
         els.status.className = 'status-ready';
         els.btnRun.removeAttribute('disabled');
+        els.btnTest.removeAttribute('disabled');
         clearTerminal();
-        appendTerminalLine('PyTUI Shell loaded successfully.', 'system-line');
+        appendTerminalLine('BaiTapPyMi Shell loaded successfully.', 'system-line');
         appendTerminalLine('Write Python script in the Editor and click "Run (F5)" to execute.', 'system-line');
         appendTerminalLine('Type code directly at the terminal prompt below for instant evaluation.', 'system-line');
         showReplPrompt();
@@ -147,6 +199,10 @@ function handleWorkerMessage(e) {
 
     case 'stdin_request':
       setWaitingForInputState(true);
+      break;
+
+    case 'test_result':
+      handleTestResult(e.data.status, e.data.message);
       break;
       
     default:
@@ -313,12 +369,14 @@ function setRunningState(running) {
     els.status.innerText = 'RUNNING';
     els.status.className = 'status-running';
     els.btnRun.setAttribute('disabled', 'true');
+    els.btnTest.setAttribute('disabled', 'true');
     els.btnStop.removeAttribute('disabled');
     hideReplPrompt();
   } else {
     els.status.innerText = 'READY';
     els.status.className = 'status-ready';
     els.btnRun.removeAttribute('disabled');
+    els.btnTest.removeAttribute('disabled');
     els.btnStop.setAttribute('disabled', 'true');
     setWaitingForInputState(false);
     showReplPrompt();
@@ -455,12 +513,97 @@ els.terminalInput.onkeydown = (e) => {
   }
 };
 
+// Diagnostic Test Run Execution
+function runDiagnosticTests() {
+  if (STATE.isRunning) return;
+
+  // Save current script state
+  STATE.files[STATE.activeFile] = els.codeEditor.value;
+
+  // Set running state
+  setRunningState(true);
+
+  // Configure target filename
+  els.testTargetFilename.innerText = STATE.activeFile;
+
+  // Display dialog in Loading mode
+  els.dialogTestResults.classList.remove('hidden');
+  els.testRunningSpinner.classList.remove('hidden');
+  els.testResultsContainer.classList.add('hidden');
+
+  // Fetch test suite. If not found, use default syntax compile check.
+  let testSuite = HIDDEN_TESTS[STATE.activeFile];
+  if (!testSuite) {
+    const cleanModName = STATE.activeFile.replace('.py', '');
+    testSuite = `
+# Generic compilation check
+import importlib
+try:
+    importlib.import_module("${cleanModName}")
+except Exception as e:
+    raise AssertionError(f"Module compilation or import failed: {str(e)}")
+`;
+  }
+
+  // Post execute message to worker
+  pyodideWorker.postMessage({
+    type: 'run',
+    data: {
+      code: STATE.files[STATE.activeFile],
+      activeFile: STATE.activeFile,
+      files: STATE.files,
+      isTest: true,
+      testSuite: testSuite
+    }
+  });
+}
+
+// Handle diagnostic evaluation results from Web Worker
+function handleTestResult(status, message) {
+  // Hide spinner, show results block
+  els.testRunningSpinner.classList.add('hidden');
+  els.testResultsContainer.classList.remove('hidden');
+
+  // Format header outcome title
+  els.testOutcomeTitle.className = 'test-outcome-title'; // reset classes
+
+  if (status === 'PASS') {
+    els.testOutcomeTitle.classList.add('pass');
+    els.testOutcomeTitle.innerText = 'DIAGNOSTIC TEST: PASSED';
+    els.testOutcomeDetails.innerText = message || 'All test assertions evaluated successfully.';
+  } else if (status === 'FAIL') {
+    els.testOutcomeTitle.classList.add('fail');
+    els.testOutcomeTitle.innerText = 'DIAGNOSTIC TEST: FAILED';
+    els.testOutcomeDetails.innerText = message || 'Assertion failed in test suite runner.';
+  } else {
+    els.testOutcomeTitle.classList.add('error');
+    els.testOutcomeTitle.innerText = 'SYNTAX/RUNTIME ERROR';
+    els.testOutcomeDetails.innerText = message || 'An error occurred during verification.';
+  }
+
+  // Restore states
+  setRunningState(false);
+}
+
+
+
+// Hook Close diagnostic test results popup
+els.btnCloseTestDialog.onclick = () => {
+  els.dialogTestResults.classList.add('hidden');
+};
+
 // Global Hotkeys
 window.onkeydown = (e) => {
   // F5 -> Run Script
   if (e.key === 'F5') {
     e.preventDefault();
     runActiveScript();
+  }
+  
+  // F6 -> Test Script
+  if (e.key === 'F6') {
+    e.preventDefault();
+    runDiagnosticTests();
   }
   
   // Ctrl + L -> Clear Terminal

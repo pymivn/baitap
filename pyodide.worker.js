@@ -1,5 +1,5 @@
 // Web Worker for Pyodide execution
-importScripts("https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js");
+importScripts("https://cdn.jsdelivr.net/pyodide/v0.29.4/full/pyodide.js");
 
 let pyodide = null;
 let sharedBuffer = null;
@@ -71,7 +71,7 @@ self.onmessage = async function(e) {
       return;
     }
 
-    const { code, activeFile, files } = data;
+    const { code, activeFile, files, isTest, testSuite } = data;
 
     // 1. Clean up deleted files from Pyodide VFS
     try {
