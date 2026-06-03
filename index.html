@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PyTUI - Browser Python Environment</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="A premium client-side Text User Interface (TUI) for running Python code directly in your browser without a backend using Pyodide and Web Workers.">
+  <meta name="keywords" content="python, tui, browser python, pyodide, client-side python, web assembly, web worker">
+  
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="crt-off">
+  
+  <!-- CRT Scanline & Flicker Effect overlay -->
+  <div id="crt-overlay"></div>
+  
+  <!-- Main Grid Layout -->
+  <div id="tui-container">
+    
+    <!-- Top Header -->
+    <header id="tui-header">
+      <div class="header-logo">
+        <span class="logo-icon"></span> PyTUI v1.0.0
+      </div>
+      <div class="header-status">
+        STATUS: <span id="status-indicator" class="status-ready">LOADING PYODIDE...</span>
+      </div>
+      <div class="header-controls">
+        <label class="toggle-control">
+          <input type="checkbox" id="crt-toggle">
+          <span class="toggle-label">CRT FX</span>
+        </label>
+      </div>
+    </header>
+    
+    <!-- Main Content Area -->
+    <main id="tui-workspace">
+      
+      <!-- Left Panel: File Explorer -->
+      <section id="panel-explorer" class="tui-panel" aria-labelledby="explorer-title">
+        <div class="panel-header">
+          <span class="panel-title" id="explorer-title">📁 File Explorer</span>
+          <div class="panel-actions">
+            <button id="btn-new-file" title="New File" aria-label="Create new file">+</button>
+            <button id="btn-upload-file" title="Upload File" aria-label="Upload file from computer">↑</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <ul id="file-list" role="tree" aria-label="Virtual Filesystem">
+            <!-- Files injected here -->
+          </ul>
+        </div>
+      </section>
+      
+      <!-- Split Main Panel (Editor & Terminal) -->
+      <div id="panel-split-right">
+        
+        <!-- Top Half: Code Editor -->
+        <section id="panel-editor" class="tui-panel" aria-labelledby="editor-title">
+          <div class="panel-header">
+            <span class="panel-title" id="editor-title">📝 Editor: <span id="active-filename">main.py</span></span>
+            <div class="panel-actions">
+              <button id="btn-run" class="btn-primary" disabled>Run (F5)</button>
+              <button id="btn-test" class="btn-warning" disabled>Test (F6)</button>
+              <button id="btn-stop" class="btn-danger" disabled>Stop</button>
+            </div>
+          </div>
+          <div class="panel-body editor-body">
+            <div class="line-numbers" id="editor-line-numbers">1</div>
+            <textarea id="code-editor" aria-label="Code Editor" spellcheck="false" autocomplete="off" placeholder="# Write your Python code here..."></textarea>
+          </div>
+        </section>
+        
+        <!-- Bottom Half: Console / Terminal -->
+        <section id="panel-terminal" class="tui-panel" aria-labelledby="terminal-title">
+          <div class="panel-header">
+            <span class="panel-title" id="terminal-title">💻 Terminal Console</span>
+            <div class="panel-actions">
+              <button id="btn-clear-terminal" title="Clear Terminal" aria-label="Clear Terminal console">Clear</button>
+            </div>
+          </div>
+          <div class="panel-body terminal-body" id="terminal-output" role="log" aria-live="polite">
+            <!-- Loading screen inside terminal output initially -->
+            <div class="terminal-line system-line">Initializing PyTUI core engine...</div>
+            <div class="terminal-line system-line">Downloading WebAssembly modules from CDN...</div>
+            <div class="terminal-line system-line">Please wait while the Python runtime initializes in a Web Worker.</div>
+          </div>
+          <!-- Stdin Input row -->
+          <div id="terminal-input-row" class="hidden">
+            <span id="terminal-prompt">&gt;&gt;&gt;</span>
+            <input type="text" id="terminal-input" aria-label="Terminal input" autocomplete="off" spellcheck="false">
+          </div>
+        </section>
+        
+      </div>
+      
+    </main>
+    
+    <!-- Bottom Footer Status Bar -->
+    <footer id="tui-footer">
+      <div class="footer-item"><span class="shortcut">F5</span> Run</div>
+      <div class="footer-item"><span class="shortcut">Ctrl+L</span> Clear Terminal</div>
+      <div class="footer-item"><span class="shortcut">Ctrl+N</span> New File</div>
+      <div class="footer-item"><span class="shortcut">Ctrl+D</span> Delete File</div>
+      <div class="footer-version">Running client-side without backend</div>
+    </footer>
+    
+  </div>
+
+  <!-- Loading Modal / Overlay -->
+  <div id="loading-overlay" class="overlay">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <h2 class="loading-title">BOOTING PYTHON WASM</h2>
+      <div class="loading-sub">Downloading Pyodide core & standard libraries...</div>
+      <div class="progress-bar-container">
+        <div id="boot-progress" class="progress-bar" style="width: 15%"></div>
+      </div>
+      <div id="loading-details" class="loading-details">Contacting JSDelivr CDN...</div>
+    </div>
+  </div>
+
+  <!-- New File Modal -->
+  <div id="dialog-new-file" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+    <div class="dialog-box">
+      <div class="dialog-header">CREATE NEW FILE</div>
+      <div class="dialog-body">
+        <label for="new-filename-input">Filename:</label>
+        <input type="text" id="new-filename-input" placeholder="e.g. math_helper.py" autocomplete="off" spellcheck="false">
+        <div id="dialog-error" class="dialog-error hidden"></div>
+      </div>
+      <div class="dialog-actions">
+        <button id="btn-dialog-cancel">Cancel</button>
+        <button id="btn-dialog-create" class="btn-primary">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Diagnostic Test Results Modal -->
+  <div id="dialog-test-results" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="test-dialog-title">
+    <div class="dialog-box test-dialog-box">
+      <div class="dialog-header" id="test-dialog-title">DIAGNOSTIC TEST RUNNER</div>
+      <div class="dialog-body">
+        <div class="test-header-status">
+          Target File: <span id="test-target-filename" class="text-primary-color">main.py</span>
+        </div>
+        <div id="test-running-spinner" class="test-spinner-box">
+          <div class="spinner"></div>
+          <div class="test-loading-text">Running test suites against active implementation...</div>
+        </div>
+        <div id="test-results-container" class="hidden">
+          <div class="test-outcome-title" id="test-outcome-title">TEST STATUS</div>
+          <div class="test-outcome-details" id="test-outcome-details">
+            No assertion results available.
+          </div>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button id="btn-close-test-dialog" class="btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden HTML File Input for Uploading files -->
+  <input type="file" id="file-upload-input" class="hidden" accept=".py,.txt">
+
+  <!-- Main JavaScript File -->
+  <script src="app.js"></script>
+</body>
+</html>
