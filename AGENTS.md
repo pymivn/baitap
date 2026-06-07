@@ -86,3 +86,64 @@ Since static hosts like GitHub Pages do not allow configuring server response he
 - It registers dynamically on page launch.
 - Intercepts local file requests and injects the necessary COOP and COEP headers, enabling `SharedArrayBuffer` support on any static hosting environment.
 - The workflow `.github/workflows/deploy.yml` triggers on pushes to the `main` branch to automatically publish the workspace to GitHub Pages.
+
+---
+
+## 6. Project Layout & API Reference
+
+### File Map
+- **`index.html`**: Layout structure including grid elements for panels (File Manager, Editor, Console) and CSS/JS integrations.
+- **`style.css`**: CSS styling rules providing retro green/amber console aesthetics, panel window frames, blinking cursors, and custom overlays.
+- **`app.js`**: Core frontend coordinator managing state (open files, execution variables), DOM event handlers, hotkeys (`F5`, `F6`, `Ctrl+L`), and file buffer structures.
+- **`pyodide.worker.js`**: Pyodide loader and execution worker handling WASM execution, stdout/stderr forwarding, and Atomics.wait blocking loops.
+- **`coi-serviceworker.js`**: Service Worker utility enabling COOP/COEP header spoofing on static servers.
+- **`server.py`**: Custom HTTP dev server for local execution with direct CORS header modifications.
+
+### Worker Communication API
+The Main thread and Pyodide Web Worker communicate strictly via asynchronous structured JSON message passing.
+
+#### Main → Worker
+- **`init`**: Initiates handshake, passing the SharedArrayBuffer and StatusBuffer handles.
+  ```json
+  { "type": "init", "buffer": SharedArrayBuffer, "statusBuffer": SharedArrayBuffer }
+  ```
+- **`run`**: Instructs the worker to execute Python script code.
+  ```json
+  { 
+    "type": "run", 
+    "data": { 
+      "code": "print(2+2)", 
+      "activeFile": "main.py", 
+      "files": { "main.py": "print(2+2)" },
+      "isTest": false,
+      "testSuite": ""
+    } 
+  }
+  ```
+
+#### Worker → Main
+- **`ready`**: Pyodide core compiler has finished loading and is ready to run code.
+  ```json
+  { "type": "ready" }
+  ```
+- **`stdout` / `stderr`**: Transmits console logging blocks.
+  ```json
+  { "type": "stdout", "content": "Hello World" }
+  ```
+- **`stdin_request`**: Signals that Python has paused at `input()`, requesting input sequence.
+  ```json
+  { "type": "stdin_request" }
+  ```
+- **`success` / `error`**: Execution results status messages.
+  ```json
+  { "type": "success" }
+  { "type": "error", "content": "ZeroDivisionError: division by zero" }
+  ```
+- **`test_result`**: Transmits diagnostic assertion details.
+  ```json
+  { 
+    "type": "test_result", 
+    "status": "PASS" | "FAIL" | "ERROR", 
+    "message": "All test cases passed successfully!" 
+  }
+  ```
