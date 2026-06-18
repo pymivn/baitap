@@ -3,7 +3,7 @@ const STATE = {
   files: {
     'main.py': `# Interactive Python TUI Demo\n# Press F5 or the Run button to execute.\n\nprint("=========================================")\nprint("Welcome to BaiTapPyMi browser-based IDE!")\nprint("=========================================")\n\n# Define an add function to pass diagnostics tests (F6)\ndef add(a, b):\n    return a + b\n\nname = input("Enter your username: ")\nprint(f"Initializing profile for: {name}")\n\nfor i in range(1, 4):\n    print(f" -> Loading module {i}/3...")\n\nprint("Ready! Let's do some math.")\ntry:\n    val1 = int(input("Enter number A: "))\n    val2 = int(input("Enter number B: "))\n    print(f"Result: {val1} + {val2} = {add(val1, val2)}")\nexcept ValueError:\n    print("Error: Invalid number inputs.")\n\nprint("Goodbye!")\n`,
     'utils.py': `def greet(name):\n    return f"Hello, {name} from utils.py!"\n\ndef fibonacci(n):\n    if n <= 0:\n        return []\n    elif n == 1:\n        return [0]\n    sequence = [0, 1]\n    while len(sequence) < n:\n        sequence.append(sequence[-1] + sequence[-2])\n    return sequence\n`,
-    'data.txt': `Welcome to the virtual filesystem.\nYou can read this file using standard python read commands:\n\nwith open('data.txt') as f:\n    print(f.read())\n`
+    'HUONGDAN.txt': `Sửa các bài tập rồi chạy code\n`
   },
   activeFile: 'main.py',
   isRunning: false,
@@ -534,7 +534,7 @@ function runDiagnosticTests() {
   // Fetch test suite. If not found, use default syntax compile check.
   let testSuite = HIDDEN_TESTS[STATE.activeFile];
   if (!testSuite) {
-    const cleanModName = STATE.activeFile.replace('.py', '');
+    const cleanModName = STATE.activeFile.replace('.py', '').replace(/[^a-zA-Z0-9_]/g, '');
     testSuite = `
 # Generic compilation check
 import importlib
@@ -638,8 +638,25 @@ els.crtToggle.onchange = (e) => {
 
 // Bootstrap app on windows load
 window.onload = () => {
-  updateFileList();
-  updateLineNumbers();
-  startLoadingProgress();
-  initWorker();
+  fetch('workspace.json')
+    .then(res => {
+      if (!res.ok) throw new Error("workspace.json not found");
+      return res.json();
+    })
+    .then(data => {
+      for (const key in data) {
+        if (/^[a-zA-Z0-9_\-\.]+\.(py|txt)$/.test(key)) {
+          STATE.files[key] = data[key];
+        }
+      }
+    })
+    .catch(err => {
+      console.warn("Could not load external workspace:", err);
+    })
+    .finally(() => {
+      updateFileList();
+      updateLineNumbers();
+      startLoadingProgress();
+      initWorker();
+    });
 };
