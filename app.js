@@ -8,7 +8,8 @@ const STATE = {
   activeFile: 'main.py',
   isRunning: false,
   isWaitingForInput: false,
-  crtEffect: false
+  crtEffect: false,
+  explorerCollapsed: false
 };
 
 // Hidden Diagnostics Tests Configuration
@@ -84,7 +85,9 @@ const els = {
   testResultsContainer: document.getElementById('test-results-container'),
   testOutcomeTitle: document.getElementById('test-outcome-title'),
   testOutcomeDetails: document.getElementById('test-outcome-details'),
-  btnCloseTestDialog: document.getElementById('btn-close-test-dialog')
+  btnCloseTestDialog: document.getElementById('btn-close-test-dialog'),
+  btnToggleExplorer: document.getElementById('btn-toggle-explorer'),
+  panelExplorer: document.getElementById('panel-explorer')
 };
 
 // Shared memory for synchronous inputs
@@ -592,6 +595,43 @@ els.btnCloseTestDialog.onclick = () => {
   els.dialogTestResults.classList.add('hidden');
 };
 
+// Explorer Toggle (VS Code-style sidebar collapse)
+function toggleExplorer() {
+  const panel = els.panelExplorer;
+  STATE.explorerCollapsed = !STATE.explorerCollapsed;
+  if (STATE.explorerCollapsed) {
+    panel.classList.add('explorer-collapsed');
+    panel.classList.remove('explorer-expanded-override');
+    els.btnToggleExplorer.textContent = '📁';
+  } else {
+    panel.classList.remove('explorer-collapsed');
+    panel.classList.add('explorer-expanded-override');
+    els.btnToggleExplorer.textContent = '◀';
+  }
+}
+
+els.btnToggleExplorer.onclick = toggleExplorer;
+
+// Sync explorer state with CSS auto-collapse media query on small screens
+(function syncExplorerState() {
+  const mq = window.matchMedia('screen and (max-height: 450px) and (orientation: landscape)');
+  function onMediaChange(e) {
+    if (e.matches && !STATE.explorerCollapsed) {
+      STATE.explorerCollapsed = true;
+      els.btnToggleExplorer.textContent = '📁';
+      els.panelExplorer.classList.remove('explorer-expanded-override');
+    }
+  }
+  // Sync on initial load
+  if (mq.matches) {
+    STATE.explorerCollapsed = true;
+    els.btnToggleExplorer.textContent = '📁';
+  }
+  // Re-sync when screen rotates or resizes
+  mq.addEventListener('change', onMediaChange);
+})();
+
+
 // Global Hotkeys
 window.onkeydown = (e) => {
   // F5 -> Run Script
@@ -623,6 +663,12 @@ window.onkeydown = (e) => {
   if (e.ctrlKey && e.key.toLowerCase() === 'd') {
     e.preventDefault();
     deleteFile(STATE.activeFile);
+  }
+
+  // Ctrl + B -> Toggle Explorer
+  if (e.ctrlKey && e.key.toLowerCase() === 'b') {
+    e.preventDefault();
+    toggleExplorer();
   }
 };
 

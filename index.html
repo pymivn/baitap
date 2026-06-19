@@ -47,6 +47,7 @@
       <!-- Left Panel: File Explorer -->
       <section id="panel-explorer" class="tui-panel" aria-labelledby="explorer-title">
         <div class="panel-header">
+          <button id="btn-toggle-explorer" class="explorer-toggle-btn" title="Toggle Explorer (Ctrl+B)" aria-label="Toggle file explorer sidebar">◀</button>
           <span class="panel-title" id="explorer-title">📁 File Explorer</span>
           <div class="panel-actions">
             <button id="btn-new-file" title="New File" aria-label="Create new file">+</button>
@@ -67,8 +68,8 @@
           <div class="panel-header">
             <span class="panel-title" id="editor-title">📝 Editor: <span id="active-filename">main.py</span></span>
             <div class="panel-actions">
-              <button id="btn-run" class="btn-primary" disabled>Run (F5)</button>
-              <button id="btn-test" class="btn-warning" disabled>Test (F6)</button>
+              <button id="btn-run" class="btn-primary" disabled>Run<span class="shortcut-hint"> (F5)</span></button>
+              <button id="btn-test" class="btn-warning hidden" disabled>Test<span class="shortcut-hint"> (F6)</span></button>
               <button id="btn-stop" class="btn-danger" disabled>Stop</button>
             </div>
           </div>
@@ -110,6 +111,7 @@
       <div class="footer-item"><span class="shortcut">Ctrl+L</span> Clear Terminal</div>
       <div class="footer-item"><span class="shortcut">Ctrl+N</span> New File</div>
       <div class="footer-item"><span class="shortcut">Ctrl+D</span> Delete File</div>
+      <div class="footer-item"><span class="shortcut">Ctrl+B</span> Toggle Explorer</div>
       <div class="footer-version">Running client-side without backend</div>
     </footer>
     

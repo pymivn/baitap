@@ -714,3 +714,149 @@ button:disabled {
   max-height: 180px;
   overflow-y: auto;
 }
+
+/* ===== Collapsible File Explorer (VS Code-style) ===== */
+.explorer-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--primary-dim);
+  font-size: 14px;
+  padding: 0 4px;
+  cursor: pointer;
+  transition: transform 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+  line-height: 1;
+  min-width: 44px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: rgba(102, 252, 241, 0.15);
+  touch-action: manipulation;
+}
+
+.explorer-toggle-btn:hover {
+  color: var(--primary-color) !important;
+  border: none !important;
+}
+
+#panel-explorer {
+  transition: width 0.2s ease;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+#panel-explorer.explorer-collapsed {
+  width: 44px;
+}
+
+#panel-explorer.explorer-collapsed .panel-title,
+#panel-explorer.explorer-collapsed .panel-actions,
+#panel-explorer.explorer-collapsed .panel-body {
+  display: none;
+}
+
+#panel-explorer.explorer-collapsed .panel-header {
+  justify-content: center;
+  padding: 0;
+}
+
+
+
+/* ===== Mobile Landscape Media Query ===== */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  #tui-header {
+    height: 30px;
+    font-size: 12px;
+    padding: 0 8px;
+  }
+
+  #tui-footer {
+    height: 24px;
+    font-size: 11px;
+    padding: 0 8px;
+    gap: 6px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* Hide verbose footer shortcuts on small screens */
+  #tui-footer .footer-item:nth-child(n+4) {
+    display: none;
+  }
+
+  #panel-explorer {
+    width: 200px;
+  }
+
+  #panel-explorer.explorer-collapsed {
+    width: 44px;
+  }
+
+  #panel-editor {
+    min-height: 120px;
+  }
+
+  #panel-terminal {
+    min-height: 100px;
+    height: 35%;
+  }
+
+  #panel-split-right {
+    overflow-y: auto;
+  }
+
+  .panel-header {
+    height: 28px;
+    font-size: 11px;
+    padding: 0 6px;
+  }
+
+  /* Compact editor action buttons */
+  .panel-actions {
+    gap: 4px;
+  }
+
+  .panel-actions button {
+    font-size: 11px;
+    padding: 1px 5px;
+  }
+
+  /* Truncate panel titles to prevent overflow */
+  .panel-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  body {
+    font-size: 13px;
+  }
+
+  /* Hide keyboard shortcut hints - phones don't have F-keys */
+  .shortcut-hint {
+    display: none;
+  }
+}
+
+/* Even smaller landscape screens auto-collapse explorer */
+@media screen and (max-height: 450px) and (orientation: landscape) {
+  #panel-explorer:not(.explorer-expanded-override) {
+    width: 44px;
+  }
+
+  #panel-explorer:not(.explorer-expanded-override) .panel-title,
+  #panel-explorer:not(.explorer-expanded-override) .panel-actions,
+  #panel-explorer:not(.explorer-expanded-override) .panel-body {
+    display: none;
+  }
+
+  #panel-explorer:not(.explorer-expanded-override) .panel-header {
+    justify-content: center;
+    padding: 0;
+  }
+
+
+}
