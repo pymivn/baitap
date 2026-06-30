@@ -71,7 +71,7 @@ self.onmessage = async function(e) {
       return;
     }
 
-    const { code, activeFile, files, isTest, testSuite } = data;
+    const { code, activeFile, files, isTest, testSuite, testMethod } = data;
 
     // 1. Clean up deleted files from Pyodide VFS
     try {
@@ -127,15 +127,122 @@ self.onmessage = async function(e) {
       const isRepl = activeFile === 'repl';
       
       if (isTest && testSuite) {
-        // Run student code first
-        await pyodide.runPythonAsync(code, { filename: activeFile || 'main.py' });
+        // Build a custom unittest runner that collects per-method results as JSON
+        const methodFilter = testMethod ? `"${testMethod.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : 'None';
         
-        // Run test suite assertions
+        const runnerCode = `
+import unittest
+import json
+import sys
+import io
+
+# Invalidate cached exercise modules so Python re-imports from the updated VFS.
+for _cached_mod in list(sys.modules.keys()):
+    if _cached_mod.startswith('ex') and len(_cached_mod) > 2 and _cached_mod[2:3].isdigit():
+        del sys.modules[_cached_mod]
+
+# Monkey-patch assertion methods to auto-wrap each in a subTest,
+# so every assertion reports as a separate test case in the results.
+_case_counter = [0]
+_in_subtest = [False]
+
+def _wrap_assert(orig):
+    def _wrapper(self, *args, **kwargs):
+        if _in_subtest[0] or getattr(self, '_subtest', None) is not None:
+            return orig(self, *args, **kwargs)
+        _case_counter[0] += 1
+        _in_subtest[0] = True
+        try:
+            with self.subTest(case=_case_counter[0]):
+                return orig(self, *args, **kwargs)
+        finally:
+            _in_subtest[0] = False
+    return _wrapper
+
+for _m in ['assertEqual', 'assertNotEqual', 'assertTrue', 'assertFalse',
+           'assertIn', 'assertNotIn', 'assertIs', 'assertIsNot',
+           'assertIsNone', 'assertIsNotNone', 'assertIsInstance',
+           'assertGreater', 'assertGreaterEqual', 'assertLess', 'assertLessEqual',
+           'assertAlmostEqual', 'assertNotAlmostEqual', 'assertRegex',
+           'assertRaises', 'assertRaisesRegex']:
+    if hasattr(unittest.TestCase, _m):
+        setattr(unittest.TestCase, _m, _wrap_assert(getattr(unittest.TestCase, _m)))
+
+# Capture stdout/stderr during test execution
+_old_stdout = sys.stdout
+_old_stderr = sys.stderr
+_test_stdout = io.StringIO()
+_test_stderr = io.StringIO()
+sys.stdout = _test_stdout
+sys.stderr = _test_stderr
+
+${testSuite}
+
+# Discover and run tests with optional method filter
+loader = unittest.TestLoader()
+suite = unittest.TestSuite()
+_test_method_filter = ${methodFilter}
+
+for _name, _obj in list(globals().items()):
+    if isinstance(_obj, type) and issubclass(_obj, unittest.TestCase) and _obj is not unittest.TestCase and _name != 'TestExercise':
+        if _test_method_filter:
+            try:
+                suite.addTest(_obj(_test_method_filter))
+            except ValueError:
+                pass
+        else:
+            suite.addTests(loader.loadTestsFromTestCase(_obj))
+
+class _JSONResult(unittest.TestResult):
+    def __init__(self):
+        super().__init__()
+        self.results = []
+        self._sub_count = 0
+    def addSubTest(self, test, subtest, err):
+        super().addSubTest(test, subtest, err)
+        self._sub_count += 1
+        if err is None:
+            self.results.append({"method": str(subtest), "status": "PASS", "message": ""})
+        else:
+            self.results.append({"method": str(subtest), "status": "FAIL", "message": str(err[1])})
+    def addSuccess(self, test):
+        super().addSuccess(test)
+        if self._sub_count == 0:
+            self.results.append({"method": str(test), "status": "PASS", "message": ""})
+        self._sub_count = 0
+    def addFailure(self, test, err):
+        super().addFailure(test, err)
+        if self._sub_count == 0:
+            self.results.append({"method": str(test), "status": "FAIL", "message": str(err[1])})
+        self._sub_count = 0
+    def addError(self, test, err):
+        super().addError(test, err)
+        self.results.append({"method": str(test), "status": "ERROR", "message": str(err[1])})
+        self._sub_count = 0
+    def addSkip(self, test, reason):
+        super().addSkip(test, reason)
+        self.results.append({"method": str(test), "status": "SKIP", "message": reason})
+        self._sub_count = 0
+
+_result = _JSONResult()
+suite.run(_result)
+
+sys.stdout = _old_stdout
+sys.stderr = _old_stderr
+
+json.dumps({"total": _result.testsRun, "results": _result.results, "wasSuccessful": _result.wasSuccessful()})
+`;
+
         try {
-          await pyodide.runPythonAsync(testSuite, { filename: 'test_suite.py' });
-          postMessage({ type: 'test_result', status: 'PASS', message: 'All test cases passed successfully!' });
-        } catch (testErr) {
-          postMessage({ type: 'test_result', status: 'FAIL', message: testErr.message });
+          const jsonStr = await pyodide.runPythonAsync(runnerCode, { filename: 'test_runner.py' });
+          const parsed = JSON.parse(jsonStr);
+          postMessage({
+            type: 'test_result',
+            status: parsed.wasSuccessful ? 'PASS' : 'FAIL',
+            message: JSON.stringify(parsed.results)
+          });
+        } catch (err) {
+          postMessage({ type: 'test_result', status: 'ERROR', message: err.message });
         }
       } else {
         const result = await pyodide.runPythonAsync(code, { filename: activeFile || 'main.py' });

@@ -69,7 +69,7 @@
             <span class="panel-title" id="editor-title">📝 Editor: <span id="active-filename">main.py</span></span>
             <div class="panel-actions">
               <button id="btn-run" class="btn-primary" disabled>Run<span class="shortcut-hint"> (F5)</span></button>
-              <button id="btn-test" class="btn-warning hidden" disabled>Test<span class="shortcut-hint"> (F6)</span></button>
+              <button id="btn-test" class="btn-warning" disabled>Test<span class="shortcut-hint"> (F6)</span></button>
               <button id="btn-stop" class="btn-danger" disabled>Stop</button>
             </div>
           </div>
@@ -156,6 +156,8 @@
         </div>
         <div id="test-results-container" class="hidden">
           <div class="test-outcome-title" id="test-outcome-title">TEST STATUS</div>
+          <div id="test-summary-bar" class="test-summary-bar"></div>
+          <div id="test-methods-list" class="test-methods-list"></div>
           <div class="test-outcome-details" id="test-outcome-details">
             No assertion results available.
           </div>
