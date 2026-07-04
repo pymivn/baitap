@@ -24,12 +24,15 @@ INCOMPATIBLE_MARKERS = [
     "configparser.ConfigParser",
     "os.path.exists(",
     'os.path.join(os.path.dirname(__file__)',
+    "os.path.dirname(__file__)",
     "os.getcwd()",
     'open(fn',
     'open(__file__)',
     "hashlib.md5(",
     "os.__file__",
     "time.sleep(",
+    "urllib.request.urlopen(",
+    "smtplib.",
 ]
 
 
@@ -150,11 +153,13 @@ def method_name_to_exercise_file(method_name):
     return f"{ex_name}.py"
 
 
-def adapt_test_source(source, base_class_code):
+def adapt_test_source(source, base_class_code, target_exercise=None):
     """Transform test file source code for browser Pyodide execution.
 
     - Replace 'from tests.base import TestExercise' -> inline base class
     - Replace 'import exercises.X as X' -> 'import X'
+    - Strip imports for exercises OTHER than target_exercise to avoid
+      cross-contamination (e.g. importing browser-incompatible modules)
     - Remove 'if __name__' blocks
     - Remove standalone 'import unittest' (we prepend it)
     """
@@ -166,10 +171,23 @@ def adapt_test_source(source, base_class_code):
         flags=re.MULTILINE,
     )
 
+    # Determine the target module name (e.g. 'ex6_1' from 'ex6_1.py')
+    target_module = None
+    if target_exercise:
+        target_module = target_exercise.replace(".py", "")
+
     # Transform 'import exercises.ex3_0 as ex3_0' -> 'import ex3_0'
+    # But strip imports for exercises OTHER than the target to prevent
+    # cross-contamination from incompatible modules in the same test file.
+    def _replace_exercise_import(match):
+        module_name = match.group(1)
+        if target_module and module_name != target_module:
+            return ""  # Strip unrelated exercise import
+        return f"import {match.group(1)} as {match.group(2)}"
+
     adapted = re.sub(
         r"^import exercises\.(\w+) as (\w+)\s*$",
-        r"import \1 as \2",
+        _replace_exercise_import,
         adapted,
         flags=re.MULTILINE,
     )
@@ -235,6 +253,26 @@ def check_method_compatibility(source, method_name, class_name):
     return True, None
 
 
+def check_exercise_compatibility(exercise_file):
+    """Check if an exercise source file uses browser-incompatible operations.
+
+    Scans the exercise source (not just the test) for patterns that won't
+    work in Pyodide/WASM, such as file I/O, network calls, or OS operations.
+    """
+    exercise_path = os.path.join("exercises", exercise_file)
+    if not os.path.exists(exercise_path):
+        return True, None
+
+    with open(exercise_path, "r", encoding="utf-8") as f:
+        source = f.read()
+
+    for marker in INCOMPATIBLE_MARKERS:
+        if marker in source:
+            return False, f"Exercise uses incompatible operation: {marker}"
+
+    return True, None
+
+
 def build_test_registry(workspace_files):
     """Scan pyfml/tests/ and generate the test registry.
 
@@ -267,8 +305,8 @@ def build_test_registry(workspace_files):
         if not methods:
             continue
 
-        # Adapt the full test source once per file
-        adapted_source = adapt_test_source(raw_source, base_class_code)
+        # NOTE: adapted source is now generated per-exercise below
+        # to strip unrelated imports and avoid cross-contamination.
 
         for method_info in methods:
             exercise_file = method_name_to_exercise_file(method_info["method_name"])
@@ -281,7 +319,7 @@ def build_test_registry(workspace_files):
             skip = method_info["is_skipped"]
             skip_reason = "Skipped by @unittest.skip decorator" if skip else None
 
-            # Check browser compatibility if not already skipped
+            # Check browser compatibility of the TEST method
             if not skip:
                 compatible, reason = check_method_compatibility(
                     raw_source,
@@ -291,6 +329,18 @@ def build_test_registry(workspace_files):
                 if not compatible:
                     skip = True
                     skip_reason = f"Browser incompatible: {reason}"
+
+            # Also check the EXERCISE source file for incompatible ops
+            if not skip:
+                compatible, reason = check_exercise_compatibility(exercise_file)
+                if not compatible:
+                    skip = True
+                    skip_reason = f"Browser incompatible: {reason}"
+
+            # Generate per-exercise adapted source (strips unrelated imports)
+            adapted_source = adapt_test_source(
+                raw_source, base_class_code, target_exercise=exercise_file
+            )
 
             registry[exercise_file] = {
                 "testClass": method_info["class_name"],
