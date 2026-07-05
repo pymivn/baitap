@@ -1,5 +1,6 @@
 # BaiTapPyMi Architecture & Knowledge Base
 
+
 This document details the architectural patterns, security configurations, thread synchronizations, and testing design implemented for the browser-based, client-side Python TUI workspace.
 
 ---
