@@ -59,7 +59,14 @@ self.onmessage = async function(e) {
       // Load micropip for package management if needed
       await pyodide.loadPackage("micropip");
 
-      postMessage({ type: 'ready' });
+      let pythonVersion = '';
+      try {
+        pythonVersion = pyodide.runPython("import sys; sys.version");
+      } catch (versionErr) {
+        console.warn('Failed to retrieve Python version:', versionErr);
+      }
+
+      postMessage({ type: 'ready', pythonVersion });
     } catch (err) {
       postMessage({ type: 'error', content: 'Failed to boot Pyodide: ' + err.message });
     }

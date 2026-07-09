@@ -120,7 +120,7 @@ function updateLoadingDetails(prog) {
 
 // Handle responses from Pyodide worker
 function handleWorkerMessage(e) {
-  const { type, content } = e.data;
+  const { type, content, pythonVersion } = e.data;
 
   switch (type) {
     case 'ready':
@@ -134,6 +134,12 @@ function handleWorkerMessage(e) {
         els.btnRun.removeAttribute('disabled');
         els.btnTest.removeAttribute('disabled');
         clearTerminal();
+        if (pythonVersion) {
+          const versionLines = `Python ${pythonVersion}`.split('\n');
+          versionLines.forEach(line => {
+            appendTerminalLine(line, 'system-line');
+          });
+        }
         appendTerminalLine('BaiTapPyMi Shell loaded successfully.', 'system-line');
         appendTerminalLine('Write Python script in the Editor and click "Run (F5)" to execute.', 'system-line');
         appendTerminalLine('Type code directly at the terminal prompt below for instant evaluation.', 'system-line');
