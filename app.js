@@ -177,7 +177,7 @@ function handleWorkerMessage(e) {
 // Sync Editor state to file list on left
 function updateFileList() {
   els.fileList.innerHTML = '';
-  Object.keys(STATE.files).forEach(filename => {
+  Object.keys(STATE.files).sort().forEach(filename => {
     const li = document.createElement('li');
     li.className = `file-item ${filename === STATE.activeFile ? 'active' : ''}`;
     li.role = 'treeitem';
