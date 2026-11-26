@@ -214,29 +214,34 @@ body.crt-on #crt-overlay {
   flex-direction: column;
 }
 
-/* Split content pane on right */
+/* Split content pane on right (side-by-side: Editor left, Terminal right) */
 #panel-split-right {
   flex: 1;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   overflow: hidden;
 }
 
-/* Bottom Terminal Pane */
-#panel-terminal {
-  height: 40%;
-  min-height: 150px;
-  border-top: 2px solid var(--border-color);
+/* Left Pane: Code Editor */
+#panel-editor {
+  flex: 1 1 50%;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
-/* Top Code Editor Pane */
-#panel-editor {
-  flex: 1;
+/* Right Pane: Terminal */
+#panel-terminal {
+  flex: 1 1 50%;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  border-top: none;
+  border-left: 2px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  min-height: 200px;
 }
 
 /* Panels Base Styling */
@@ -253,6 +258,7 @@ body.crt-on #crt-overlay {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   padding: 0 12px;
   font-size: 13px;
 }
@@ -260,11 +266,22 @@ body.crt-on #crt-overlay {
 .panel-title {
   color: var(--primary-color);
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .panel-actions {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
+}
+
+@media screen and (max-width: 1360px) {
+  .shortcut-hint {
+    display: none;
+  }
 }
 
 /* Panel Body Base */
@@ -793,106 +810,6 @@ button:disabled {
   padding: 0;
 }
 
-
-
-/* ===== Mobile Landscape Media Query ===== */
-@media screen and (max-height: 500px) and (orientation: landscape) {
-  #tui-header {
-    height: 30px;
-    font-size: 12px;
-    padding: 0 8px;
-  }
-
-  #tui-footer {
-    height: 24px;
-    font-size: 11px;
-    padding: 0 8px;
-    gap: 6px;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-
-  /* Hide verbose footer shortcuts on small screens */
-  #tui-footer .footer-item:nth-child(n+4) {
-    display: none;
-  }
-
-  #panel-explorer {
-    width: 200px;
-  }
-
-  #panel-explorer.explorer-collapsed {
-    width: 44px;
-  }
-
-  #panel-editor {
-    min-height: 120px;
-  }
-
-  #panel-terminal {
-    min-height: 100px;
-    height: 35%;
-  }
-
-  #panel-split-right {
-    overflow-y: auto;
-  }
-
-  .panel-header {
-    height: 28px;
-    font-size: 11px;
-    padding: 0 6px;
-  }
-
-  /* Compact editor action buttons */
-  .panel-actions {
-    gap: 4px;
-  }
-
-  .panel-actions button {
-    font-size: 11px;
-    padding: 1px 5px;
-  }
-
-  /* Truncate panel titles to prevent overflow */
-  .panel-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-    flex-shrink: 1;
-  }
-
-  body {
-    font-size: 13px;
-  }
-
-  /* Hide keyboard shortcut hints - phones don't have F-keys */
-  .shortcut-hint {
-    display: none;
-  }
-}
-
-/* Even smaller landscape screens auto-collapse explorer */
-@media screen and (max-height: 450px) and (orientation: landscape) {
-  #panel-explorer:not(.explorer-expanded-override) {
-    width: 44px;
-  }
-
-  #panel-explorer:not(.explorer-expanded-override) .panel-title,
-  #panel-explorer:not(.explorer-expanded-override) .panel-actions,
-  #panel-explorer:not(.explorer-expanded-override) .panel-body {
-    display: none;
-  }
-
-  #panel-explorer:not(.explorer-expanded-override) .panel-header {
-    justify-content: center;
-    padding: 0;
-  }
-
-
-}
-
 /* === Per-Method Test Results === */
 .test-summary-bar {
   padding: 8px 12px;
@@ -1314,6 +1231,22 @@ button:disabled {
 }
 
 @media screen and (max-width: 900px) {
+  #panel-split-right {
+    flex-direction: column;
+  }
+
+  #panel-editor {
+    flex: 1 1 55%;
+    min-height: 180px;
+  }
+
+  #panel-terminal {
+    border-left: none;
+    border-top: 2px solid var(--border-color);
+    flex: 0 0 45%;
+    min-height: 180px;
+  }
+
   .guide-drawer {
     position: fixed;
     top: 36px;
@@ -1323,5 +1256,106 @@ button:disabled {
     max-width: 420px;
     z-index: 900;
     box-shadow: -6px 0 24px rgba(0, 0, 0, 0.75);
+  }
+}
+
+/* ===== Mobile Landscape Media Query ===== */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  #tui-header {
+    height: 30px;
+    font-size: 12px;
+    padding: 0 8px;
+  }
+
+  #tui-footer {
+    height: 24px;
+    font-size: 11px;
+    padding: 0 8px;
+    gap: 6px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* Hide verbose footer shortcuts on small screens */
+  #tui-footer .footer-item:nth-child(n+4) {
+    display: none;
+  }
+
+  #panel-explorer {
+    width: 200px;
+  }
+
+  #panel-explorer.explorer-collapsed {
+    width: 44px;
+  }
+
+  #panel-split-right {
+    flex-direction: row;
+    overflow: hidden;
+  }
+
+  #panel-editor {
+    flex: 1 1 50%;
+    min-height: 0;
+  }
+
+  #panel-terminal {
+    flex: 1 1 50%;
+    min-height: 0;
+    height: auto;
+    border-top: none;
+    border-left: 2px solid var(--border-color);
+  }
+
+  .panel-header {
+    height: 28px;
+    font-size: 11px;
+    padding: 0 6px;
+  }
+
+  /* Compact editor action buttons */
+  .panel-actions {
+    gap: 4px;
+  }
+
+  .panel-actions button {
+    font-size: 11px;
+    padding: 1px 5px;
+  }
+
+  /* Truncate panel titles to prevent overflow */
+  .panel-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  body {
+    font-size: 13px;
+  }
+
+  /* Hide keyboard shortcut hints - phones don't have F-keys */
+  .shortcut-hint {
+    display: none;
+  }
+}
+
+/* Even smaller landscape screens auto-collapse explorer */
+@media screen and (max-height: 450px) and (orientation: landscape) {
+  #panel-explorer:not(.explorer-expanded-override) {
+    width: 44px;
+  }
+
+  #panel-explorer:not(.explorer-expanded-override) .panel-title,
+  #panel-explorer:not(.explorer-expanded-override) .panel-actions,
+  #panel-explorer:not(.explorer-expanded-override) .panel-body {
+    display: none;
+  }
+
+  #panel-explorer:not(.explorer-expanded-override) .panel-header {
+    justify-content: center;
+    padding: 0;
   }
 }
