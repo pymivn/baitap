@@ -1173,36 +1173,6 @@ button:disabled {
   white-space: pre;
 }
 
-.guide-code-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px 8px;
-  background-color: rgba(27, 32, 42, 0.7);
-  border-top: 1px solid var(--border-color);
-}
-
-.guide-copy-btn,
-.guide-run-btn {
-  font-size: 11px;
-  padding: 2px 7px;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.guide-run-btn {
-  border-color: rgba(0, 255, 102, 0.45);
-  color: var(--success-color);
-}
-
-.guide-run-btn:hover:not(:disabled) {
-  background-color: rgba(0, 255, 102, 0.14);
-  border-color: var(--success-color);
-  color: var(--success-color);
-}
-
 /* === Unsupported / Reset Dialogs === */
 .unsupported-dialog-box {
   width: 500px;

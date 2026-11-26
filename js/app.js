@@ -729,40 +729,6 @@ function initLinuxVmWorkspace() {
           pre.appendChild(code);
           wrapper.appendChild(pre);
 
-          const actions = document.createElement('div');
-          actions.className = 'guide-code-actions';
-
-          const copyBtn = document.createElement('button');
-          copyBtn.type = 'button';
-          copyBtn.className = 'guide-copy-btn';
-          copyBtn.textContent = 'Copy';
-          copyBtn.addEventListener('click', () => {
-            const payload = block.commands.length > 0 ? block.commands.join('\n') : block.raw;
-            navigator.clipboard?.writeText(payload).catch(() => {});
-            copyBtn.textContent = 'Copied!';
-            window.setTimeout(() => {
-              copyBtn.textContent = 'Copy';
-            }, 1200);
-          });
-          actions.appendChild(copyBtn);
-
-          for (const cmd of block.commands) {
-            const runBtn = document.createElement('button');
-            runBtn.type = 'button';
-            runBtn.className = 'guide-run-btn';
-            const shortCmd = cmd.length > 36 ? `${cmd.slice(0, 33)}...` : cmd;
-            runBtn.textContent = `▶ ${shortCmd}`;
-            runBtn.title = `Run in terminal: ${cmd}`;
-            runBtn.addEventListener('click', () => {
-              if (!state.vm) return;
-              void state.vm.sendCommandToTerminal(cmd);
-              state.terminalView?.focus();
-              window.setTimeout(() => void refreshGitStatus(), 500);
-            });
-            actions.appendChild(runBtn);
-          }
-
-          wrapper.appendChild(actions);
           secEl.appendChild(wrapper);
         }
       }
