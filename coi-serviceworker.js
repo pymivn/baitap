@@ -1,9 +1,17 @@
 /*! coi-serviceworker v0.1.7 | MIT License | https://github.com/gzguidoti/coi-serviceworker */
-if (typeof window === 'undefined') {
+if (typeof window === "undefined") {
     self.addEventListener("install", () => self.skipWaiting());
     self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
     self.addEventListener("fetch", (event) => {
         if (event.request.cache === "only-if-cached" && event.request.mode !== "same-origin") {
+            return;
+        }
+        const url = new URL(event.request.url);
+        if (
+            event.request.mode !== "navigate" &&
+            url.origin === self.location.origin &&
+            url.pathname.endsWith(".wasm")
+        ) {
             return;
         }
         event.respondWith(
@@ -15,7 +23,11 @@ if (typeof window === 'undefined') {
                     const newHeaders = new Headers(response.headers);
                     newHeaders.set("Cross-Origin-Embedder-Policy", "require-corp");
                     newHeaders.set("Cross-Origin-Opener-Policy", "same-origin");
-                    return new Response(response.body, {
+                    const body =
+                        response.status === 204 || response.status === 205 || response.status === 304
+                            ? null
+                            : response.body;
+                    return new Response(body, {
                         status: response.status,
                         statusText: response.statusText,
                         headers: newHeaders,
@@ -23,6 +35,7 @@ if (typeof window === 'undefined') {
                 })
                 .catch((e) => {
                     console.error(e);
+                    return Response.error();
                 })
         );
     });
