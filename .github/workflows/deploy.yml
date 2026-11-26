@@ -24,13 +24,40 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Cache VM Build Artifacts
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: vm-cache-${{ hashFiles('scripts/vm_builder_core.py', 'scripts/build_vm.py') }}
+          restore-keys: |
+            vm-cache-
+
+      - name: Build Browser Linux VM Assets
+        run: |
+          nix --extra-experimental-features "nix-command flakes" shell \
+            nixpkgs#python3 nixpkgs#erofs-utils nixpkgs#nodejs_24 \
+            -c python3 scripts/build_vm.py
+
+      - name: Stage Pages Artifact
+        run: |
+          rm -rf _site
+          mkdir -p _site/vendor
+          cp index.html style.css coi-serviceworker.js app.js pyodide.worker.js \
+            workspace.json tests.json guide.rst pyfml.json _site/
+          cp -r js distros _site/
+          cp -r vendor/unkernel _site/vendor/
+          rm -f _site/vendor/unkernel/node.mjs _site/vendor/unkernel/_chunks/node.mjs
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_site'
 
       - name: Deploy to GitHub Pages
         id: deployment

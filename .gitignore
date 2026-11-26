@@ -219,3 +219,10 @@ __marimo__/
 __pycache__/
 *.pyc
 .DS_Store
+
+# BaiTapPyMi Browser Linux VM generated & cached artifacts
+.cache/
+vendor/unkernel/
+distros/
+pyfml.json
+_site/
