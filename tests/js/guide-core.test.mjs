@@ -189,7 +189,8 @@ describe('guide-core: real guide.rst parsing', () => {
     const allCommands = sections.flatMap((s) =>
       s.blocks.filter((b) => b.type === 'code').flatMap((b) => b.commands ?? [])
     );
-    assert.ok(allCommands.includes('git clone https://thegit.pymi.vn/pyfml/pyfml.git pyfml'));
+    assert.ok(allCommands.includes('ls pyfml/'));
+    assert.ok(allCommands.includes('cd pyfml'));
     assert.ok(allCommands.includes('cd exercises'));
     assert.ok(allCommands.includes('python3 ../vendor/pep8.py ex3_0.py'));
     assert.ok(allCommands.includes('python3 -m unittest tests.test_ex3 -vvv'));
