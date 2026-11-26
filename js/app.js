@@ -32,7 +32,6 @@ const els = {
   btnRun: document.getElementById('btn-run'),
   btnPep8: document.getElementById('btn-pep8'),
   btnTest: document.getElementById('btn-test'),
-  btnStop: document.getElementById('btn-stop'),
   codeEditor: document.getElementById('code-editor'),
   lineNumbers: document.getElementById('editor-line-numbers'),
 
@@ -40,8 +39,6 @@ const els = {
   btnClearTerminal: document.getElementById('btn-clear-terminal'),
   terminalContainer: document.getElementById('terminal-container'),
   terminalKeybar: document.getElementById('terminal-keybar'),
-  terminalOutput: document.getElementById('terminal-output'),
-  terminalInputRow: document.getElementById('terminal-input-row'),
 
   guideDrawer: document.getElementById('guide-drawer'),
   btnCloseGuide: document.getElementById('btn-close-guide'),
@@ -56,7 +53,7 @@ const els = {
 
   unsupportedOverlay: document.getElementById('unsupported-overlay'),
   unsupportedProblems: document.getElementById('unsupported-problems'),
-  btnLaunchPyodide: document.getElementById('btn-launch-pyodide'),
+  btnRetryBoot: document.getElementById('btn-retry-boot'),
 
   dialogNewFile: document.getElementById('dialog-new-file'),
   newFilenameInput: document.getElementById('new-filename-input'),
@@ -78,49 +75,6 @@ const els = {
   testOutcomeDetails: document.getElementById('test-outcome-details'),
   btnCloseTestDialog: document.getElementById('btn-close-test-dialog'),
 };
-
-function isLegacyPyodideMode() {
-  return new URLSearchParams(window.location.search).get('mode') === 'pyodide';
-}
-
-function activateLegacyPyodideMode() {
-  if (els.headerBrand) els.headerBrand.textContent = 'BaiTapPyMi (Legacy Pyodide)';
-  if (els.status) {
-    els.status.textContent = 'LOADING PYODIDE...';
-    els.status.className = 'status-loading';
-  }
-  if (els.activeFilename) els.activeFilename.textContent = 'main.py';
-  if (els.terminalTitle) els.terminalTitle.textContent = '💻 Terminal Console (Pyodide)';
-  if (els.footerModeLabel) els.footerModeLabel.textContent = 'Legacy Pyodide Fallback Mode';
-  if (els.loadingTitle) els.loadingTitle.textContent = 'BOOTING PYTHON WASM';
-  if (els.loadingSub) els.loadingSub.textContent = 'Loading Pyodide core & standard libraries...';
-  if (els.loadingDetails) els.loadingDetails.textContent = 'Initializing Web Worker...';
-
-  els.terminalContainer?.classList.add('hidden');
-  els.terminalKeybar?.classList.add('hidden');
-  els.terminalOutput?.classList.remove('hidden');
-
-  els.btnSave?.classList.add('hidden');
-  els.btnPep8?.classList.add('hidden');
-  els.btnRefreshFiles?.classList.add('hidden');
-  els.btnToggleGuide?.classList.add('hidden');
-  els.btnResetVm?.classList.add('hidden');
-  els.gitBranchBadge?.classList.add('hidden');
-  els.saveIndicator?.classList.add('hidden');
-  els.btnStop?.classList.remove('hidden');
-
-  const script = document.createElement('script');
-  script.src = 'app.js';
-  script.onload = () => {
-    if (document.readyState === 'complete' && typeof window.onload === 'function') {
-      window.onload(new Event('load'));
-    }
-    if (typeof window.selectFile === 'function') {
-      window.selectFile('main.py');
-    }
-  };
-  document.body.appendChild(script);
-}
 
 function shellSingleQuote(value) {
   return `'${String(value).replace(/'/g, "'\"'\"'")}'`;
@@ -855,11 +809,7 @@ function initLinuxVmWorkspace() {
     }
   });
 
-  els.btnLaunchPyodide?.addEventListener('click', () => {
-    const url = new URL(window.location.href);
-    url.searchParams.set('mode', 'pyodide');
-    window.location.href = url.toString();
-  });
+  els.btnRetryBoot?.addEventListener('click', () => window.location.reload());
 
   els.btnSave?.addEventListener('click', () => {
     void saveActiveFile();
@@ -1088,8 +1038,4 @@ function initLinuxVmWorkspace() {
   })();
 }
 
-if (isLegacyPyodideMode()) {
-  activateLegacyPyodideMode();
-} else {
-  initLinuxVmWorkspace();
-}
+initLinuxVmWorkspace();

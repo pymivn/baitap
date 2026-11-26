@@ -38,8 +38,8 @@ graph TD
     WORK <-->|git pull/push| BARE
 ```
 
-### Legacy Pyodide Fallback
-If WebAssembly JSPI is unavailable in the user's browser (or `?mode=pyodide` is passed in the URL), `js/app.js` displays a compatibility banner with a button to launch the legacy Pyodide worker mode (`app.js` + `pyodide.worker.js`).
+### Browser Compatibility
+If WebAssembly JSPI (or required Cross-Origin Isolation) is unavailable in the user's browser, `js/app.js` displays a compatibility modal (`#unsupported-overlay`) listing the detected issues and supported browser versions (**Chrome / Edge 137+**, **Firefox 153+**, or **Safari 27+**), along with a `Retry` button (`#btn-retry-boot`).
 
 ---
 

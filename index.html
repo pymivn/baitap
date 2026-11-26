@@ -74,7 +74,6 @@
               <button type="button" id="btn-run" class="btn-primary" disabled>Run<span class="shortcut-hint"> (F5)</span></button>
               <button type="button" id="btn-pep8" disabled>PEP8</button>
               <button type="button" id="btn-test" class="btn-warning" disabled>Test<span class="shortcut-hint"> (F6)</span></button>
-              <button type="button" id="btn-stop" class="btn-danger hidden" disabled>Stop</button>
             </div>
           </div>
           <div class="panel-body editor-body">
@@ -83,7 +82,7 @@
           </div>
         </section>
 
-        <!-- Right Pane: Real Linux Terminal / Legacy Console -->
+        <!-- Right Pane: Real Linux Terminal -->
         <section id="panel-terminal" class="tui-panel" aria-labelledby="terminal-title">
           <div class="panel-header">
             <span class="panel-title" id="terminal-title">💻 Linux Terminal (bash)</span>
@@ -95,15 +94,6 @@
           <!-- VT100 Terminal Host (VM Mode) -->
           <div id="terminal-container" class="panel-body vt-host"></div>
           <div id="terminal-keybar" class="vt-keybar" aria-label="Terminal Quick Keys"></div>
-
-          <!-- Legacy Pyodide Console (only shown in ?mode=pyodide) -->
-          <div class="panel-body terminal-body hidden" id="terminal-output" role="log" aria-live="polite">
-            <div class="terminal-line system-line">Initializing legacy Pyodide mode...</div>
-          </div>
-          <div id="terminal-input-row" class="hidden">
-            <span id="terminal-prompt">&gt;&gt;&gt;</span>
-            <input type="text" id="terminal-input" aria-label="Terminal input" autocomplete="off" spellcheck="false">
-          </div>
         </section>
 
       </div>
@@ -159,7 +149,7 @@
         </p>
       </div>
       <div class="dialog-actions">
-        <button type="button" id="btn-launch-pyodide" class="btn-primary">Launch Legacy Pyodide Mode</button>
+        <button type="button" id="btn-retry-boot" class="btn-primary">Retry</button>
       </div>
     </div>
   </div>

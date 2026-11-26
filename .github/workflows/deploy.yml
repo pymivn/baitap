@@ -45,8 +45,7 @@ jobs:
         run: |
           rm -rf _site
           mkdir -p _site/vendor
-          cp index.html style.css coi-serviceworker.js app.js pyodide.worker.js \
-            workspace.json tests.json guide.rst pyfml.json _site/
+          cp index.html style.css coi-serviceworker.js guide.rst pyfml.json _site/
           cp -r js distros _site/
           cp -r vendor/unkernel _site/vendor/
           rm -f _site/vendor/unkernel/node.mjs _site/vendor/unkernel/_chunks/node.mjs

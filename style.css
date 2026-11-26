@@ -427,65 +427,6 @@ button:disabled {
   tab-size: 4;
 }
 
-/* Terminal Panel Specific */
-.terminal-body {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-  background-color: #090a0d;
-}
-
-.terminal-line {
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.stdout-line {
-  color: #ebcb8b; /* Soft yellow stdout */
-}
-
-.stderr-line {
-  color: var(--danger-color);
-}
-
-.system-line {
-  color: var(--text-dim);
-}
-
-.prompt-line {
-  color: var(--primary-color);
-}
-
-.input-line {
-  color: var(--success-color);
-}
-
-/* Terminal Interactive Input Row */
-#terminal-input-row {
-  display: flex;
-  align-items: center;
-  background-color: #090a0d;
-  padding: 4px 12px 12px 12px;
-  gap: 8px;
-}
-
-#terminal-prompt {
-  color: var(--warning-color);
-  font-weight: bold;
-}
-
-#terminal-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--success-color);
-  font-family: var(--font-mono);
-  font-size: 13px;
-}
-
 /* Hidden elements */
 .hidden {
   display: none !important;
@@ -672,7 +613,7 @@ button:disabled {
   border-top: 1px solid var(--border-color);
 }
 
-#code-editor, .terminal-body {
+#code-editor {
   user-select: text;
   -webkit-user-select: text;
 }
