@@ -213,8 +213,10 @@ function updateFileList() {
 }
 
 function selectFile(filename) {
-  // Save current code
-  STATE.files[STATE.activeFile] = els.codeEditor.value;
+  // Save current code when switching away from an existing file
+  if (STATE.activeFile !== filename && Object.prototype.hasOwnProperty.call(STATE.files, STATE.activeFile)) {
+    STATE.files[STATE.activeFile] = els.codeEditor.value;
+  }
   
   STATE.activeFile = filename;
   els.activeFilename.innerText = filename;
@@ -771,6 +773,9 @@ window.onload = () => {
     });
 
   Promise.all([loadWorkspace, loadTests]).finally(() => {
+    if (!els.codeEditor.value && STATE.files[STATE.activeFile] !== undefined) {
+      els.codeEditor.value = STATE.files[STATE.activeFile];
+    }
     updateFileList();
     updateLineNumbers();
     startLoadingProgress();

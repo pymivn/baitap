@@ -4,140 +4,194 @@
   <script src="coi-serviceworker.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BaiTapPyMi - Browser Python Environment</title>
-  
-  <!-- SEO Meta Tags -->
-  <meta name="description" content="A premium client-side Text User Interface (TUI) for running Python code directly in your browser without a backend using Pyodide and Web Workers.">
-  <meta name="keywords" content="python, tui, browser python, pyodide, client-side python, web assembly, web worker">
-  
-  <!-- Font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
-  
+  <title>BaiTapPyMi - Browser Linux VM</title>
+
+  <meta name="description" content="Client-side Linux VM (unkernel) and Python TUI workspace running Alpine Linux, Python 3, and Git natively in your browser.">
+  <meta name="keywords" content="python, linux, tui, browser vm, unkernel, webassembly, git, pyfml">
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="crt-off">
-  
+
   <!-- CRT Scanline & Flicker Effect overlay -->
   <div id="crt-overlay"></div>
-  
+
   <!-- Main Grid Layout -->
   <div id="tui-container">
-    
+
     <!-- Top Header -->
     <header id="tui-header">
       <div class="header-logo">
-        <span class="logo-icon"></span> BaiTapPyMi v0.0.2
+        <span class="logo-icon">🐧</span>
+        <span id="header-brand">BaiTapPyMi Linux VM</span>
       </div>
       <div class="header-status">
-        STATUS: <span id="status-indicator" class="status-ready">LOADING PYODIDE...</span>
+        STATUS: <span id="status-indicator" class="status-loading">BOOTING LINUX...</span>
+        <span id="git-branch-badge" class="git-branch-badge hidden" title="Current Git branch"></span>
       </div>
       <div class="header-controls">
+        <button type="button" id="btn-toggle-guide" class="header-btn" title="Toggle interactive guide.rst">📖 Guide</button>
+        <button type="button" id="btn-reset-vm" class="header-btn btn-danger-subtle" title="Reset persistent VM disk and reboot">⟳ Reset VM</button>
         <label class="toggle-control">
           <input type="checkbox" id="crt-toggle">
           <span class="toggle-label">CRT FX</span>
         </label>
       </div>
     </header>
-    
+
     <!-- Main Content Area -->
     <main id="tui-workspace">
-      
+
       <!-- Left Panel: File Explorer -->
       <section id="panel-explorer" class="tui-panel" aria-labelledby="explorer-title">
         <div class="panel-header">
-          <button id="btn-toggle-explorer" class="explorer-toggle-btn" title="Toggle Explorer (Ctrl+B)" aria-label="Toggle file explorer sidebar">◀</button>
+          <button type="button" id="btn-toggle-explorer" class="explorer-toggle-btn" title="Toggle Explorer (Ctrl+B)" aria-label="Toggle file explorer sidebar">◀</button>
           <span class="panel-title" id="explorer-title">📁 File Explorer</span>
           <div class="panel-actions">
-            <button id="btn-new-file" title="New File" aria-label="Create new file">+</button>
+            <button type="button" id="btn-refresh-files" title="Refresh workspace & Git status" aria-label="Refresh files" disabled>↻</button>
+            <button type="button" id="btn-new-file" title="New File (Ctrl+N)" aria-label="Create new file">+</button>
           </div>
         </div>
         <div class="panel-body">
-          <ul id="file-list" role="tree" aria-label="Virtual Filesystem">
-            <!-- Files injected here -->
+          <ul id="file-list" role="tree" aria-label="Linux Workspace Files">
+            <!-- Tree items injected safely -->
           </ul>
         </div>
       </section>
-      
+
       <!-- Split Main Panel (Editor & Terminal) -->
       <div id="panel-split-right">
-        
+
         <!-- Top Half: Code Editor -->
         <section id="panel-editor" class="tui-panel" aria-labelledby="editor-title">
           <div class="panel-header">
-            <span class="panel-title" id="editor-title">📝 Editor: <span id="active-filename">main.py</span></span>
+            <span class="panel-title" id="editor-title">
+              📝 Editor: <span id="active-filename">exercises/ex3_0.py</span>
+              <span id="save-indicator" class="save-badge">SAVED</span>
+            </span>
             <div class="panel-actions">
-              <button id="btn-run" class="btn-primary" disabled>Run<span class="shortcut-hint"> (F5)</span></button>
-              <button id="btn-test" class="btn-warning" disabled>Test<span class="shortcut-hint"> (F6)</span></button>
-              <button id="btn-stop" class="btn-danger" disabled>Stop</button>
+              <button type="button" id="btn-save" disabled>Save<span class="shortcut-hint"> (Ctrl+S)</span></button>
+              <button type="button" id="btn-run" class="btn-primary" disabled>Run<span class="shortcut-hint"> (F5)</span></button>
+              <button type="button" id="btn-pep8" disabled>PEP8</button>
+              <button type="button" id="btn-test" class="btn-warning" disabled>Test<span class="shortcut-hint"> (F6)</span></button>
+              <button type="button" id="btn-stop" class="btn-danger hidden" disabled>Stop</button>
             </div>
           </div>
           <div class="panel-body editor-body">
             <div class="line-numbers" id="editor-line-numbers">1</div>
-            <textarea id="code-editor" aria-label="Code Editor" spellcheck="false" autocomplete="off" placeholder="# Write your Python code here..."></textarea>
+            <textarea id="code-editor" aria-label="Code Editor" spellcheck="false" autocomplete="off" placeholder="# Select or create a file to edit..."></textarea>
           </div>
         </section>
-        
-        <!-- Bottom Half: Console / Terminal -->
+
+        <!-- Bottom Half: Real Linux Terminal / Legacy Console -->
         <section id="panel-terminal" class="tui-panel" aria-labelledby="terminal-title">
           <div class="panel-header">
-            <span class="panel-title" id="terminal-title">💻 Terminal Console</span>
+            <span class="panel-title" id="terminal-title">💻 Linux Terminal (bash)</span>
             <div class="panel-actions">
-              <button id="btn-clear-terminal" title="Clear Terminal" aria-label="Clear Terminal console">Clear</button>
+              <button type="button" id="btn-clear-terminal" title="Clear Terminal" aria-label="Clear Terminal console">Clear</button>
             </div>
           </div>
-          <div class="panel-body terminal-body" id="terminal-output" role="log" aria-live="polite">
-            <!-- Loading screen inside terminal output initially -->
-            <div class="terminal-line system-line">Initializing BaiTapPyMi core engine...</div>
-            <div class="terminal-line system-line">Downloading WebAssembly modules from CDN...</div>
-            <div class="terminal-line system-line">Please wait while the Python runtime initializes in a Web Worker.</div>
+
+          <!-- VT100 Terminal Host (VM Mode) -->
+          <div id="terminal-container" class="panel-body vt-host"></div>
+          <div id="terminal-keybar" class="vt-keybar" aria-label="Terminal Quick Keys"></div>
+
+          <!-- Legacy Pyodide Console (only shown in ?mode=pyodide) -->
+          <div class="panel-body terminal-body hidden" id="terminal-output" role="log" aria-live="polite">
+            <div class="terminal-line system-line">Initializing legacy Pyodide mode...</div>
           </div>
-          <!-- Stdin Input row -->
           <div id="terminal-input-row" class="hidden">
             <span id="terminal-prompt">&gt;&gt;&gt;</span>
             <input type="text" id="terminal-input" aria-label="Terminal input" autocomplete="off" spellcheck="false">
           </div>
         </section>
-        
+
       </div>
-      
+
+      <!-- Interactive guide.rst Drawer -->
+      <aside id="guide-drawer" class="tui-panel guide-drawer hidden" aria-label="Interactive guide.rst">
+        <div class="panel-header">
+          <span class="panel-title">📖 guide.rst</span>
+          <div class="panel-actions">
+            <button type="button" id="btn-close-guide" aria-label="Close guide drawer">×</button>
+          </div>
+        </div>
+        <div id="guide-content" class="panel-body guide-content"></div>
+      </aside>
+
     </main>
-    
+
     <!-- Bottom Footer Status Bar -->
     <footer id="tui-footer">
-      <div class="footer-item"><span class="shortcut">Ctrl+L</span> Clear Terminal</div>
+      <div class="footer-item"><span class="shortcut">Ctrl+S</span> Save</div>
+      <div class="footer-item"><span class="shortcut">F5</span> Run</div>
+      <div class="footer-item"><span class="shortcut">F6</span> Test</div>
       <div class="footer-item"><span class="shortcut">Ctrl+B</span> Toggle Explorer</div>
-      <div class="footer-version">Running client-side without backend</div>
+      <div class="footer-version" id="footer-mode-label">Linux 7.x in WebAssembly (unkernel)</div>
     </footer>
-    
+
   </div>
 
   <!-- Loading Modal / Overlay -->
   <div id="loading-overlay" class="overlay">
     <div class="loading-box">
       <div class="spinner"></div>
-      <h2 class="loading-title">BOOTING PYTHON WASM</h2>
-      <div class="loading-sub">Downloading Pyodide core & standard libraries...</div>
+      <h2 class="loading-title" id="loading-title">BOOTING LINUX VM</h2>
+      <div class="loading-sub" id="loading-sub">Loading Alpine Linux + Python 3 + Git in WebAssembly...</div>
       <div class="progress-bar-container">
-        <div id="boot-progress" class="progress-bar" style="width: 15%"></div>
+        <div id="boot-progress" class="progress-bar" style="width: 10%"></div>
       </div>
-      <div id="loading-details" class="loading-details">Contacting JSDelivr CDN...</div>
+      <div id="loading-details" class="loading-details">Checking browser WebAssembly JSPI support...</div>
+    </div>
+  </div>
+
+  <!-- Unsupported Browser / JSPI Missing Banner -->
+  <div id="unsupported-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="unsupported-title">
+    <div class="dialog-box unsupported-dialog-box">
+      <div class="dialog-header" id="unsupported-title">LINUX VM REQUIRES WEBASSEMBLY JSPI</div>
+      <div class="dialog-body">
+        <p class="unsupported-lead">
+          Your current browser cannot boot the full Alpine Linux WebAssembly VM because WebAssembly JSPI (or required isolation features) is unavailable.
+        </p>
+        <ul id="unsupported-problems" class="unsupported-problems"></ul>
+        <p class="unsupported-browsers">
+          Supported browsers for Linux VM mode: <strong>Chrome / Edge 137+</strong>, <strong>Firefox 153+</strong>, or <strong>Safari 27+</strong>.
+        </p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="btn-launch-pyodide" class="btn-primary">Launch Legacy Pyodide Mode</button>
+      </div>
     </div>
   </div>
 
   <!-- New File Modal -->
   <div id="dialog-new-file" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
     <div class="dialog-box">
-      <div class="dialog-header">CREATE NEW FILE</div>
+      <div class="dialog-header" id="dialog-title">CREATE NEW FILE</div>
       <div class="dialog-body">
-        <label for="new-filename-input">Filename:</label>
-        <input type="text" id="new-filename-input" placeholder="e.g. math_helper.py" autocomplete="off" spellcheck="false">
+        <label for="new-filename-input">Relative path inside pyfml:</label>
+        <input type="text" id="new-filename-input" placeholder="e.g. exercises/my_test.py" autocomplete="off" spellcheck="false">
         <div id="dialog-error" class="dialog-error hidden"></div>
       </div>
       <div class="dialog-actions">
-        <button id="btn-dialog-cancel">Cancel</button>
-        <button id="btn-dialog-create" class="btn-primary">Create</button>
+        <button type="button" id="btn-dialog-cancel">Cancel</button>
+        <button type="button" id="btn-dialog-create" class="btn-primary">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset VM Confirmation Modal -->
+  <div id="dialog-reset-confirm" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title">
+    <div class="dialog-box">
+      <div class="dialog-header" id="reset-dialog-title">RESET LINUX VM</div>
+      <div class="dialog-body">
+        <p class="dialog-message">
+          This will wipe your persistent IndexedDB VM disk (including local commits, branches, and edited files) and reboot into a fresh pyfml workspace.
+        </p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="btn-reset-cancel">Cancel</button>
+        <button type="button" id="btn-reset-confirm" class="btn-danger">Reset &amp; Reboot</button>
       </div>
     </div>
   </div>
@@ -148,11 +202,11 @@
       <div class="dialog-header" id="test-dialog-title">DIAGNOSTIC TEST RUNNER</div>
       <div class="dialog-body">
         <div class="test-header-status">
-          Target File: <span id="test-target-filename" class="text-primary-color">main.py</span>
+          Target: <span id="test-target-filename" class="text-primary-color">exercises/ex3_0.py</span>
         </div>
         <div id="test-running-spinner" class="test-spinner-box">
           <div class="spinner"></div>
-          <div class="test-loading-text">Running test suites against active implementation...</div>
+          <div class="test-loading-text">Running unittest inside Alpine Linux VM...</div>
         </div>
         <div id="test-results-container" class="hidden">
           <div class="test-outcome-title" id="test-outcome-title">TEST STATUS</div>
@@ -164,13 +218,12 @@
         </div>
       </div>
       <div class="dialog-actions">
-        <button id="btn-close-test-dialog" class="btn-primary">Close</button>
+        <button type="button" id="btn-close-test-dialog" class="btn-primary">Close</button>
       </div>
     </div>
   </div>
 
-
-  <!-- Main JavaScript File -->
-  <script src="app.js"></script>
+  <!-- Main ES Module Entrypoint -->
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>

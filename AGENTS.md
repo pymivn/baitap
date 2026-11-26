@@ -1,150 +1,100 @@
 # BaiTapPyMi Architecture & Knowledge Base
 
-
-This document details the architectural patterns, security configurations, thread synchronizations, and testing design implemented for the browser-based, client-side Python TUI workspace.
+This document details the architecture, security boundaries, filesystem layout, and build/test workflows for the browser-based **BaiTapPyMi Linux VM** TUI workspace.
 
 ---
 
-## 1. Multi-Threaded Execution Model
+## 1. Browser Linux VM Architecture (`unkernel`)
 
-To avoid freezing the browser interface during heavy computations or synchronous input prompts, the application uses a multi-threaded web worker model:
+BaiTapPyMi runs a real **Linux 7.x kernel** compiled to WebAssembly (`vendor/unkernel/unkernel.wasm`) with unmodified `aarch64` Alpine Linux user-space binaries (`python3`, `git`, `bash`, `nano`, `diffutils`, `less`, `ncurses`) inside a Web Worker (`worker: true`), requiring **WebAssembly JSPI** (Chrome/Edge 137+, Firefox 153+, Safari 27+) and **Cross-Origin Isolation (COOP/COEP)**.
 
 ```mermaid
 graph TD
-    UI[Main UI Thread: index.html + app.js] <--> |postMessage / SharedArrayBuffer| PW[Pyodide Web Worker]
-    UI <--> FS[Local Memory VFS]
-    PW <--> |Sync reads| FS
-    subgraph Web Worker Thread
-        PW --> Py[Pyodide Engine]
-        Py --> Stdin[Atomics blocking sys.stdin]
+    subgraph Browser Main Thread
+        UI[js/app.js — TUI Orchestrator]
+        TV[js/vt100-view.js — DOM Terminal View]
+        VT[js/vt100-core.js — Pure VT100/ANSI Core]
+        WSC[js/workspace-core.js — Pure Path/Tree/Git/Test Core]
+        GC[js/guide-core.js — Pure RST Parser]
+        VMS[js/vm-shell.js — Unkernel Bridge]
     end
+
+    subgraph Unkernel Web Worker
+        K[vendor/unkernel/unkernel.wasm — Linux 7.x + kwemu]
+        RFS[distros/pymi-alpine.erofs — Read-Only RootFS via HTTP Range]
+        IDB[IndexedDB kwdata — Persistent OverlayFS]
+        SEED[9p MemoryFs /mnt/pyfml-seed]
+        BARE[/srv/git/pyfml.git + post-receive hook]
+        WORK[/home/user/pyfml]
+        PTY[/bin/bash -l PTY]
+    end
+
+    UI --> TV & VMS & WSC & GC
+    TV --> VT
+    VMS <-->|PTY streams| PTY
+    VMS <-->|exec argv + stdin| WORK
+    VMS -->|9p mount| SEED
+    K --> RFS & IDB & SEED
+    WORK <-->|git pull/push| BARE
 ```
 
-- **Main Thread**: Manages the TUI DOM grid, inputs, file manager selection, code editors, and popups.
-- **Web Worker**: Instantiates the Pyodide WebAssembly compiler and standard modules. It executes python scripts in isolation.
+### Legacy Pyodide Fallback
+If WebAssembly JSPI is unavailable in the user's browser (or `?mode=pyodide` is passed in the URL), `js/app.js` displays a compatibility banner with a button to launch the legacy Pyodide worker mode (`app.js` + `pyodide.worker.js`).
 
 ---
 
-## 2. Synchronous Standard Input (`input()`) Interception
+## 2. Functional Core, Imperative Shell Design
 
-Python's `input()` function is blocking and synchronous. To support it in the asynchronous browser environment:
-1. The main thread instantiates a `SharedArrayBuffer` (4096 bytes) and an `Int32Array` status buffer (2 indices).
-2. The worker and UI thread share these buffers during initialization.
-3. When `input()` is called, Pyodide triggers the worker's `stdin` hook:
-   - Worker posts a `stdin_request` message to the UI thread.
-   - Worker calls `Atomics.wait(sharedStatus, 0, 0)`. This suspends the worker thread safely.
-4. The user types their input inside the terminal console input field in the browser.
-5. When they hit `Enter`, the UI thread:
-   - Encodes the text to UTF-8 bytes.
-   - Writes the bytes into the `SharedArrayBuffer`.
-   - Stores the text length in `sharedStatus[1]`.
-   - Stores `1` in `sharedStatus[0]` (flagging input ready).
-   - Calls `Atomics.notify(sharedStatus, 0, 1)` to wake the worker thread.
-6. The worker wakes up, reads the text from the shared memory buffer, resets `sharedStatus[0] = 0`, and returns the input to Python.
+All client-side logic is split between zero-dependency pure cores and thin imperative shells:
 
-### Safe Fallback Mode
-If `SharedArrayBuffer` is blocked by browser configuration or missing secure headers:
-- `app.js` catches the condition, logs a terminal warning, and configures the worker handshake without buffers.
-- `pyodide.worker.js` skips buffer mappings, preventing a `RangeError`/`ReferenceError` crash and allowing normal execution (minus interactive inputs).
+- **Pure Cores**:
+  - `js/vt100-core.js`: Deterministic VT100/ANSI escape parser, SGR 16/256/truecolor attributes, alternate screen buffer (`?1049h`/`?1049l`), application cursor keys (`?1h`/`?1l`), scrollback ring buffer, `encodeKeyEvent()`, and `encodePaste()`.
+  - `js/workspace-core.js`: Path traversal guard (`normalizeWorkspacePath()`), directory tree builder (`buildFileTree()`), `git status --porcelain=v1 -b` parser (`parseGitStatusPorcelain()`), exercise-to-unittest mapper (`mapExerciseToTestTarget()`), and `unittest -vvv` output parser (`parseUnittestVerboseOutput()`).
+  - `js/guide-core.js`: reStructuredText parser (`parseRstGuide()`) extracting sections, paragraphs, lists, links, and runnable code-block commands from `guide.rst`.
+- **Imperative Shells**:
+  - `js/vt100-view.js`: `requestAnimationFrame`-batched DOM grid renderer, `ResizeObserver` cell sizing, blinking cursor, wheel scrollback, `Ctrl+C` copy-if-selected / SIGINT pass-through, paste handling, and mobile touch key bar (`ESC`, `TAB`, `CTRL`, arrows).
+  - `js/vm-shell.js`: Loads `pyfml.json` into a read-only 9p `MemoryFs` at `/mnt/pyfml-seed`, boots `createKernel({ worker: true, ... })` with `distros/pymi-alpine.erofs` and persistent IndexedDB `data` disk (`template: 'bundled'`), bootstraps the local git remote and workspace, and spawns `/bin/bash -l` PTY.
+  - `js/app.js`: Coordinates the File Explorer tree, Code Editor (with 500ms debounced auto-save and `Ctrl+S`), `Run (F5)`, `PEP8`, `Test (F6)`, interactive `guide.rst` drawer, `Reset VM` (`resetDataDisk()`), and focus-safe global shortcuts (never hijacking keys when focus is inside `#terminal-container`).
 
 ---
 
-## 3. WebAssembly Virtual File System (VFS) Synchronization
+## 3. Local Git Remote & `guide.rst` Parity
 
-Files created, edited, or deleted in the explorer must match the state inside Pyodide's internal WASM container (`MEMFS`) during module imports:
-- **Write/Update**: Before executing a script, `app.js` passes the full workspace files dictionary. The worker creates parent folders if missing (`pyodide.FS.mkdir`) and writes the file (`pyodide.FS.writeFile`).
-- **Deletions**: If a file is deleted from the UI, the worker scans Pyodide's current folder (`pyodide.FS.cwd()`) and unlinks (`pyodide.FS.unlink`) any `.py` or `.txt` file not present in the payload.
-- **Security Check (Path Traversal)**: To prevent malicious filenames escaping the intended folder sandbox, filenames containing `..` or starting with `/` are explicitly skipped during synchronization.
+On first boot (or after `Reset VM`), `js/vm-shell.js` runs an idempotent Python bootstrap inside the VM:
+1. Configures system git:
+   - `git config --system url."/srv/git/pyfml.git".insteadOf "https://thegit.pymi.vn/pyfml/pyfml.git"`
+   - `git config --system init.defaultBranch master`
+   - `git config --system safe.directory '*'`
+2. Creates bare repository `/srv/git/pyfml.git` (owned by `user:users`), seeds its `master` branch from `/mnt/pyfml-seed`, and installs an executable `hooks/post-receive` script (from `pyfml.json`'s `postReceiveHook`).
+3. Clones `/srv/git/pyfml.git` to `/home/user/pyfml` and sets `origin` to `https://thegit.pymi.vn/pyfml/pyfml.git`.
 
----
-
-## 4. Packaging Exercises & Diagnostic Assertions
-
-The environment is designed to package challenge suites for users/students:
-- **Skeleton Code**: Loaded into the `STATE.files` object in `app.js`.
-- **Diagnostic Assertions**: Hidden test suites are defined in `HIDDEN_TESTS` in `app.js`.
-- **Execution (F6)**:
-  - When the user tests their script, the runner executes the user's implementation.
-  - Next, it runs the corresponding python assertion script (e.g., verifying `solution.add(2, 3) == 5`).
-  - If tests fail, Python raises an `AssertionError`.
-  - The worker catches the exception, extracts the custom failure message, and sends it to the UI.
-  - The UI displays outcomes safely using DOM `textContent` (neutralising XSS).
+Because of `insteadOf`, `git remote -v`, `git pull origin master`, `git checkout -b ...`, and `git push origin <branch>` all work offline in the browser, and pushing triggers the `post-receive` hook printing the Merge Request URL and running `vendor/pep8.py` checks on changed `exercises/*.py` files.
 
 ---
 
-## 5. Hosting & Deployment Requirements
+## 4. Security Boundaries
 
-Because `SharedArrayBuffer` requires Spectre mitigation protections, modern browsers block it unless served under a Cross-Origin Isolated secure environment.
-
-### Local Development
-The custom development server (`server.py`) binds to `127.0.0.1` and injects:
-- `Cross-Origin-Opener-Policy: same-origin` (COOP)
-- `Cross-Origin-Embedder-Policy: require-corp` (COEP)
-- `Cache-Control: no-store, no-cache, must-revalidate`
-
-### Production & Static Hosting (GitHub Pages)
-Since static hosts like GitHub Pages do not allow configuring server response headers directly, the project uses **Cross-Origin Isolation Service Worker (`coi-serviceworker.js`)**:
-- It registers dynamically on page launch.
-- Intercepts local file requests and injects the necessary COOP and COEP headers, enabling `SharedArrayBuffer` support on any static hosting environment.
-- The workflow `.github/workflows/deploy.yml` triggers on pushes to the `main` branch to automatically publish the workspace to GitHub Pages.
+- **No `innerHTML` / `outerHTML` / `document.write`**: All UI rendering (terminal cells, file tree, git status, unittest results, `guide.rst` drawer) uses DOM creation APIs and `textContent`.
+- **URL Validation**: Only `http://` and `https://` URLs are turned into `<a target="_blank" rel="noopener noreferrer">` links in the `guide.rst` drawer.
+- **No Unquoted Shell Interpolation**: `js/vm-shell.js` passes relative paths as discrete `argv` elements to `kernel.exec('/usr/bin/python3', ['-c', script, safePath], ...)` and file contents via binary `stdin` (`{ input: Uint8Array }`), while verifying paths on both host (`normalizeWorkspacePath`) and guest (`os.path.realpath`).
+- **Same-Origin Hosting**: All JS, Wasm, JSON, and EROFS assets are served same-origin with `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp`, and `Cross-Origin-Resource-Policy: same-origin`.
 
 ---
 
-## 6. Project Layout & API Reference
+## 5. Hosting, Build, Test & Audit Commands
 
-### File Map
-- **`index.html`**: Layout structure including grid elements for panels (File Manager, Editor, Console) and CSS/JS integrations.
-- **`style.css`**: CSS styling rules providing retro green/amber console aesthetics, panel window frames, blinking cursors, and custom overlays.
-- **`app.js`**: Core frontend coordinator managing state (open files, execution variables), DOM event handlers, hotkeys (`F5`, `F6`, `Ctrl+L`), and file buffer structures.
-- **`pyodide.worker.js`**: Pyodide loader and execution worker handling WASM execution, stdout/stderr forwarding, and Atomics.wait blocking loops.
-- **`coi-serviceworker.js`**: Service Worker utility enabling COOP/COEP header spoofing on static servers.
-- **`server.py`**: Custom HTTP dev server for local execution with direct CORS header modifications.
+### Local Development Server (`server.py`)
+`server.py` serves static assets on `127.0.0.1` (`PORT` env var, default `8000`) with:
+- RFC 7233 HTTP `Range` (`206 Partial Content` / `416 Range Not Satisfiable`) via `scripts/http_range_core.py` for lazy reads of `distros/pymi-alpine.erofs`.
+- `Accept-Ranges: bytes` and MIME types for `.mjs`, `.wasm`, `.erofs`, `.json`.
+- COOP/COEP/CORP headers and `Cache-Control: no-store, no-cache, must-revalidate`.
 
-### Worker Communication API
-The Main thread and Pyodide Web Worker communicate strictly via asynchronous structured JSON message passing.
+### Static Hosting (`coi-serviceworker.js`)
+For static hosts like GitHub Pages (`.github/workflows/deploy.yml`), `coi-serviceworker.js` injects COOP/COEP headers via a Service Worker, skips intercepting same-origin `.wasm` requests to preserve browser Wasm code caching, and returns `Response.error()` on failed fetches.
 
-#### Main → Worker
-- **`init`**: Initiates handshake, passing the SharedArrayBuffer and StatusBuffer handles.
-  ```json
-  { "type": "init", "buffer": SharedArrayBuffer, "statusBuffer": SharedArrayBuffer }
-  ```
-- **`run`**: Instructs the worker to execute Python script code.
-  ```json
-  { 
-    "type": "run", 
-    "data": { 
-      "code": "print(2+2)", 
-      "activeFile": "main.py", 
-      "files": { "main.py": "print(2+2)" },
-      "isTest": false,
-      "testSuite": ""
-    } 
-  }
-  ```
-
-#### Worker → Main
-- **`ready`**: Pyodide core compiler has finished loading and is ready to run code.
-  ```json
-  { "type": "ready" }
-  ```
-- **`stdout` / `stderr`**: Transmits console logging blocks.
-  ```json
-  { "type": "stdout", "content": "Hello World" }
-  ```
-- **`stdin_request`**: Signals that Python has paused at `input()`, requesting input sequence.
-  ```json
-  { "type": "stdin_request" }
-  ```
-- **`success` / `error`**: Execution results status messages.
-  ```json
-  { "type": "success" }
-  { "type": "error", "content": "ZeroDivisionError: division by zero" }
-  ```
-- **`test_result`**: Transmits diagnostic assertion details.
-  ```json
-  { 
-    "type": "test_result", 
-    "status": "PASS" | "FAIL" | "ERROR", 
-    "message": "All test cases passed successfully!" 
-  }
-  ```
+### Makefile Targets
+- `make build` — Downloads/verifies pinned `unkernel` + Alpine packages and builds `distros/pymi-alpine.erofs` (`zstd` compressed) and `pyfml.json` via `scripts/build_vm.py`.
+- `make build-pyfml` — Rebuilds `pyfml.json` only from `workspace.json`, `tests.json`, and `guide.rst`.
+- `make serve` — Starts `python3 server.py`.
+- `make test` — Runs Python unit tests (`tests/test_*.py`), Node JS core unit tests (`tests/js/*.test.mjs`), and VM E2E tests (`tests/e2e/*.test.mjs` if present).
+- `make audit` — Compiles Python sources, scans for hardcoded secret patterns, checks for unsafe `shell=True` in Python, checks `js/*.js` for unsafe DOM sinks, and verifies pinned SHA-256 digests in `scripts/vm_builder_core.py`.
