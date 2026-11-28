@@ -31,6 +31,7 @@ body {
   line-height: 1.5;
   overflow: hidden;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   user-select: none;
 }
@@ -68,6 +69,7 @@ body.crt-on #crt-overlay {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
 }
 
@@ -166,6 +168,16 @@ body.crt-on #crt-overlay {
   padding: 2px 8px;
 }
 
+.header-btn.is-active {
+  border-color: var(--primary-color);
+  background-color: rgba(102, 252, 241, 0.14);
+  color: var(--primary-color);
+}
+
+.header-explorer-btn {
+  display: none;
+}
+
 .btn-danger-subtle {
   color: var(--danger-color);
   border-color: rgba(255, 51, 102, 0.4);
@@ -201,9 +213,20 @@ body.crt-on #crt-overlay {
 
 /* Workspace Panels Layout */
 #tui-workspace {
+  position: relative;
   flex: 1;
   display: flex;
   overflow: hidden;
+}
+
+.drawer-backdrop {
+  position: fixed;
+  top: 44px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 880;
 }
 
 /* Left sidebar - File Explorer */
@@ -242,6 +265,15 @@ body.crt-on #crt-overlay {
   border-left: 2px solid var(--border-color);
   display: flex;
   flex-direction: column;
+}
+
+#panel-terminal.terminal-collapsed {
+  display: none;
+}
+
+#panel-split-right.terminal-hidden #panel-editor {
+  flex: 1 1 100%;
+  min-height: 0;
 }
 
 /* Panels Base Styling */
@@ -1170,8 +1202,195 @@ button:disabled {
   }
 }
 
-/* ===== Mobile Landscape Media Query ===== */
-@media screen and (max-height: 500px) and (orientation: landscape) {
+/* ===== Compact Width / Tablet & Pixel 6 Portrait ===== */
+@media screen and (max-width: 768px) {
+  #tui-header {
+    height: 44px;
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  .header-explorer-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    min-height: 32px;
+    padding: 2px 6px;
+  }
+
+  .status-prefix {
+    display: none;
+  }
+
+  #panel-explorer,
+  #panel-explorer.explorer-drawer-mode {
+    position: fixed;
+    top: 44px;
+    bottom: 0;
+    left: 0;
+    width: min(290px, 84vw);
+    z-index: 920;
+    transition: transform 0.2s ease;
+    box-shadow: 6px 0 24px rgba(0, 0, 0, 0.75);
+    border-right: 2px solid var(--border-color);
+  }
+
+  #panel-explorer.explorer-collapsed,
+  #panel-explorer.explorer-drawer-mode.explorer-collapsed {
+    width: min(290px, 84vw);
+    transform: translateX(-100%);
+    pointer-events: none;
+    box-shadow: none;
+  }
+
+  #panel-explorer.explorer-collapsed .panel-title {
+    display: block;
+  }
+
+  #panel-explorer.explorer-collapsed .panel-actions {
+    display: flex;
+  }
+
+  #panel-explorer.explorer-collapsed .panel-body {
+    display: block;
+  }
+
+  #panel-explorer.explorer-collapsed .panel-header {
+    justify-content: space-between;
+    padding: 0 12px;
+  }
+
+  .file-item,
+  .tree-dir-item {
+    min-height: 38px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .file-delete-btn {
+    opacity: 0.65;
+    padding: 4px 8px;
+  }
+
+  #panel-editor {
+    flex: 1 1 46%;
+    min-height: 80px;
+  }
+
+  #panel-terminal {
+    flex: 0 0 54%;
+    min-height: 120px;
+    border-left: none;
+    border-top: 2px solid var(--border-color);
+  }
+
+  .guide-drawer {
+    top: 44px;
+    bottom: 0;
+    width: min(92vw, 420px);
+    z-index: 920;
+  }
+
+  .loading-box,
+  .dialog-box,
+  .test-dialog-box {
+    max-width: 94vw;
+    max-height: 88dvh;
+    overflow-y: auto;
+  }
+}
+
+/* ===== Small Mobile Portrait (Pixel 6 412px) ===== */
+@media screen and (max-width: 640px) {
+  .toggle-control,
+  #tui-footer {
+    display: none;
+  }
+
+  .header-btn .btn-label {
+    display: none;
+  }
+
+  .header-btn {
+    min-width: 34px;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .git-branch-badge {
+    max-width: 76px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #panel-editor > .panel-header {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  #panel-editor > .panel-header .panel-title {
+    width: 100%;
+  }
+
+  #panel-editor > .panel-header .panel-actions {
+    width: 100%;
+    display: flex;
+    gap: 6px;
+  }
+
+  #panel-editor > .panel-header .panel-actions button {
+    flex: 1;
+    min-height: 32px;
+    padding: 4px 6px;
+    font-size: 12px;
+  }
+
+  .line-numbers {
+    width: 34px;
+    padding: 8px 6px 8px 0;
+    font-size: 12px;
+  }
+
+  #code-editor {
+    font-size: 14px;
+    padding: 8px;
+  }
+
+  .vt-host {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .vt-measure {
+    font-size: 12px;
+  }
+
+  .vt-keybar {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .vt-keybar-btn {
+    min-height: 34px;
+    min-width: 42px;
+    font-size: 12px;
+  }
+}
+
+@media screen and (max-width: 460px) {
+  .git-branch-badge {
+    display: none;
+  }
+}
+
+/* ===== Mobile Landscape Media Query (Pixel 6 Landscape 915x412) ===== */
+@media screen and (max-height: 500px) and (orientation: landscape) and (min-width: 769px) {
   #tui-header {
     height: 30px;
     font-size: 12px;
@@ -1207,6 +1426,11 @@ button:disabled {
 
   #panel-editor {
     flex: 1 1 50%;
+    min-height: 0;
+  }
+
+  #panel-split-right.terminal-hidden #panel-editor {
+    flex: 1 1 100%;
     min-height: 0;
   }
 
@@ -1250,23 +1474,5 @@ button:disabled {
   /* Hide keyboard shortcut hints - phones don't have F-keys */
   .shortcut-hint {
     display: none;
-  }
-}
-
-/* Even smaller landscape screens auto-collapse explorer */
-@media screen and (max-height: 450px) and (orientation: landscape) {
-  #panel-explorer:not(.explorer-expanded-override) {
-    width: 44px;
-  }
-
-  #panel-explorer:not(.explorer-expanded-override) .panel-title,
-  #panel-explorer:not(.explorer-expanded-override) .panel-actions,
-  #panel-explorer:not(.explorer-expanded-override) .panel-body {
-    display: none;
-  }
-
-  #panel-explorer:not(.explorer-expanded-override) .panel-header {
-    justify-content: center;
-    padding: 0;
   }
 }

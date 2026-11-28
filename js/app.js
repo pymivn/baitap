@@ -1,4 +1,15 @@
 import { parseRstGuide } from './guide-core.js';
+import {
+  createInitialLayoutState,
+  onFileSelected,
+  onViewportResized,
+  openTerminalForExecution,
+  shouldAutoFocusTerminal,
+  shouldShowBackdrop,
+  toggleExplorer,
+  toggleGuide,
+  toggleTerminal,
+} from './layout-core.js';
 import { createVmShell, checkVmSupport } from './vm-shell.js';
 import { createTerminalView } from './vt100-view.js';
 import {
@@ -14,18 +25,22 @@ const INLINE_LINK_RE =
 
 const els = {
   headerBrand: document.getElementById('header-brand'),
+  btnHeaderExplorer: document.getElementById('btn-header-explorer'),
   status: document.getElementById('status-indicator'),
   gitBranchBadge: document.getElementById('git-branch-badge'),
+  btnToggleTerminal: document.getElementById('btn-toggle-terminal'),
   btnToggleGuide: document.getElementById('btn-toggle-guide'),
   btnResetVm: document.getElementById('btn-reset-vm'),
   crtToggle: document.getElementById('crt-toggle'),
 
+  drawerBackdrop: document.getElementById('drawer-backdrop'),
   panelExplorer: document.getElementById('panel-explorer'),
   btnToggleExplorer: document.getElementById('btn-toggle-explorer'),
   btnRefreshFiles: document.getElementById('btn-refresh-files'),
   btnNewFile: document.getElementById('btn-new-file'),
   fileList: document.getElementById('file-list'),
 
+  panelSplitRight: document.getElementById('panel-split-right'),
   activeFilename: document.getElementById('active-filename'),
   saveIndicator: document.getElementById('save-indicator'),
   btnSave: document.getElementById('btn-save'),
@@ -35,8 +50,10 @@ const els = {
   codeEditor: document.getElementById('code-editor'),
   lineNumbers: document.getElementById('editor-line-numbers'),
 
+  panelTerminal: document.getElementById('panel-terminal'),
   terminalTitle: document.getElementById('terminal-title'),
   btnClearTerminal: document.getElementById('btn-clear-terminal'),
+  btnHideTerminal: document.getElementById('btn-hide-terminal'),
   terminalContainer: document.getElementById('terminal-container'),
   terminalKeybar: document.getElementById('terminal-keybar'),
 
@@ -172,6 +189,13 @@ function resolveTestTarget(relPath) {
   return null;
 }
 
+function readViewport() {
+  return {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  };
+}
+
 function initLinuxVmWorkspace() {
   const state = {
     vm: null,
@@ -186,10 +210,11 @@ function initLinuxVmWorkspace() {
     selectSeq: 0,
     saveChain: Promise.resolve(),
     expandedDirs: new Set(['exercises']),
-    explorerCollapsed: false,
+    layout: createInitialLayoutState(readViewport()),
     guideLoaded: false,
     bootReady: false,
   };
+  let layoutFitTimer = null;
 
   function setStatus(label, cssClass) {
     if (!els.status) return;
@@ -330,6 +355,7 @@ function initLinuxVmWorkspace() {
           li.appendChild(meta);
           li.addEventListener('click', () => {
             void selectFile(node.path);
+            updateLayout((s) => onFileSelected(s));
           });
           frag.appendChild(li);
         }
@@ -518,6 +544,7 @@ function initLinuxVmWorkspace() {
       els.dialogNewFile?.classList.add('hidden');
       await refreshWorkspace();
       await selectFile(norm.path);
+      updateLayout((s) => onFileSelected(s));
     } catch (err) {
       showNewFileError(err?.message ?? String(err));
     }
@@ -532,23 +559,29 @@ function initLinuxVmWorkspace() {
   async function runActiveFile() {
     if (!state.vm || !state.activeFile) return;
     await saveActiveFile();
+    updateLayout((s) => openTerminalForExecution(s));
     const absPath = `${WORKSPACE_DIR}/${state.activeFile}`;
     const cmd = state.activeFile.endsWith('.py')
       ? `python3 ${shellSingleQuote(absPath)}`
       : `cat ${shellSingleQuote(absPath)}`;
     await state.vm.sendCommandToTerminal(cmd);
-    state.terminalView?.focus();
+    if (shouldAutoFocusTerminal(state.layout)) {
+      state.terminalView?.focus();
+    }
     window.setTimeout(() => void refreshGitStatus(), 400);
   }
 
   async function runPep8OnActiveFile() {
     if (!state.vm || !state.activeFile || !state.activeFile.endsWith('.py')) return;
     await saveActiveFile();
+    updateLayout((s) => openTerminalForExecution(s));
     const absFile = `${WORKSPACE_DIR}/${state.activeFile}`;
     const pep8Script = `${WORKSPACE_DIR}/vendor/pep8.py`;
     const cmd = `python3 ${shellSingleQuote(pep8Script)} ${shellSingleQuote(absFile)} && echo '[PEP8] OK'`;
     await state.vm.sendCommandToTerminal(cmd);
-    state.terminalView?.focus();
+    if (shouldAutoFocusTerminal(state.layout)) {
+      state.terminalView?.focus();
+    }
   }
 
   async function runDiagnosticTests() {
@@ -694,28 +727,74 @@ function initLinuxVmWorkspace() {
     state.guideLoaded = true;
   }
 
-  function toggleExplorer() {
-    if (!els.panelExplorer || !els.btnToggleExplorer) return;
-    state.explorerCollapsed = !state.explorerCollapsed;
-    if (state.explorerCollapsed) {
-      els.panelExplorer.classList.add('explorer-collapsed');
-      els.panelExplorer.classList.remove('explorer-expanded-override');
-      els.btnToggleExplorer.textContent = '📁';
-    } else {
-      els.panelExplorer.classList.remove('explorer-collapsed');
-      els.panelExplorer.classList.add('explorer-expanded-override');
-      els.btnToggleExplorer.textContent = '◀';
+  function applyLayout(prevLayout) {
+    const layout = state.layout;
+    if (els.panelExplorer) {
+      els.panelExplorer.classList.toggle('explorer-collapsed', !layout.explorerOpen);
+      els.panelExplorer.classList.toggle(
+        'explorer-drawer-mode',
+        layout.viewport.explorerMode === 'drawer',
+      );
     }
-    window.setTimeout(() => state.terminalView?.fit(), 220);
+    if (els.btnToggleExplorer) {
+      els.btnToggleExplorer.textContent = layout.explorerOpen ? '◀' : '📁';
+      els.btnToggleExplorer.setAttribute('aria-expanded', layout.explorerOpen ? 'true' : 'false');
+    }
+    if (els.btnHeaderExplorer) {
+      els.btnHeaderExplorer.setAttribute('aria-expanded', layout.explorerOpen ? 'true' : 'false');
+      els.btnHeaderExplorer.classList.toggle('is-active', layout.explorerOpen);
+    }
+    if (els.panelTerminal) {
+      els.panelTerminal.classList.toggle('terminal-collapsed', !layout.terminalOpen);
+    }
+    if (els.panelSplitRight) {
+      els.panelSplitRight.classList.toggle('terminal-hidden', !layout.terminalOpen);
+    }
+    if (els.btnToggleTerminal) {
+      els.btnToggleTerminal.setAttribute('aria-pressed', layout.terminalOpen ? 'true' : 'false');
+      els.btnToggleTerminal.classList.toggle('is-active', layout.terminalOpen);
+    }
+    if (els.guideDrawer) {
+      els.guideDrawer.classList.toggle('hidden', !layout.guideOpen);
+    }
+    if (els.btnToggleGuide) {
+      els.btnToggleGuide.setAttribute('aria-pressed', layout.guideOpen ? 'true' : 'false');
+      els.btnToggleGuide.classList.toggle('is-active', layout.guideOpen);
+    }
+    if (els.drawerBackdrop) {
+      els.drawerBackdrop.classList.toggle('hidden', !shouldShowBackdrop(layout));
+    }
+
+    const layoutChanged =
+      !prevLayout ||
+      prevLayout.explorerOpen !== layout.explorerOpen ||
+      prevLayout.terminalOpen !== layout.terminalOpen ||
+      prevLayout.guideOpen !== layout.guideOpen ||
+      prevLayout.viewport.explorerMode !== layout.viewport.explorerMode ||
+      prevLayout.viewport.width !== layout.viewport.width ||
+      prevLayout.viewport.height !== layout.viewport.height;
+
+    const terminalOpened = (!prevLayout || !prevLayout.terminalOpen) && layout.terminalOpen;
+    if (terminalOpened && state.terminalView) {
+      state.terminalView.fit();
+    }
+
+    if (layoutChanged && layout.terminalOpen && state.terminalView) {
+      window.requestAnimationFrame(() => state.terminalView?.fit());
+      if (layoutFitTimer !== null) {
+        window.clearTimeout(layoutFitTimer);
+      }
+      layoutFitTimer = window.setTimeout(() => {
+        layoutFitTimer = null;
+        state.terminalView?.fit();
+      }, 220);
+    }
   }
 
-  function toggleGuideDrawer(forceOpen) {
-    if (!els.guideDrawer) return;
-    const willOpen = typeof forceOpen === 'boolean'
-      ? forceOpen
-      : els.guideDrawer.classList.contains('hidden');
-    els.guideDrawer.classList.toggle('hidden', !willOpen);
-    window.setTimeout(() => state.terminalView?.fit(), 50);
+  function updateLayout(updater) {
+    const prevLayout = state.layout;
+    state.layout = updater(state.layout);
+    applyLayout(prevLayout);
   }
 
   function updateProgress(p) {
@@ -726,25 +805,25 @@ function initLinuxVmWorkspace() {
         els.bootProgress.style.width = `${pct}%`;
         const mbLoaded = (p.loaded / 1048576).toFixed(1);
         const mbTotal = (p.total / 1048576).toFixed(1);
-        els.loadingDetails.textContent = `Downloading ${p.what || 'asset'}: ${mbLoaded} / ${mbTotal} MiB`;
+        els.loadingDetails.textContent = `Downloading workspace: ${mbLoaded} / ${mbTotal} MiB`;
       } else {
-        els.loadingDetails.textContent = `Downloading ${p.what || 'asset'}...`;
+        els.loadingDetails.textContent = 'Downloading workspace...';
       }
     } else if (p.stage === 'compile') {
       els.bootProgress.style.width = '55%';
-      els.loadingDetails.textContent = 'Compiling Linux kernel WebAssembly...';
+      els.loadingDetails.textContent = 'Preparing Python 3 runtime...';
     } else if (p.stage === 'compiled') {
       els.bootProgress.style.width = '72%';
-      els.loadingDetails.textContent = 'Kernel compiled. Starting Alpine Linux...';
+      els.loadingDetails.textContent = 'Starting Python 3 environment...';
     } else if (p.stage === 'memory') {
       els.bootProgress.style.width = '80%';
-      els.loadingDetails.textContent = 'Allocating guest RAM...';
+      els.loadingDetails.textContent = 'Allocating workspace memory...';
     } else if (p.stage === 'instantiate') {
       els.bootProgress.style.width = '86%';
-      els.loadingDetails.textContent = 'Instantiating Linux kernel...';
+      els.loadingDetails.textContent = 'Initializing workspace...';
     } else if (p.stage === 'start') {
       els.bootProgress.style.width = '92%';
-      els.loadingDetails.textContent = 'Mounting rootfs & seeding git repository...';
+      els.loadingDetails.textContent = 'Mounting workspace & git repository...';
     }
   }
 
@@ -768,9 +847,31 @@ function initLinuxVmWorkspace() {
     document.body.className = e.target.checked ? 'crt-on' : 'crt-off';
   });
 
-  els.btnToggleExplorer?.addEventListener('click', toggleExplorer);
-  els.btnToggleGuide?.addEventListener('click', () => toggleGuideDrawer());
-  els.btnCloseGuide?.addEventListener('click', () => toggleGuideDrawer(false));
+  els.btnToggleExplorer?.addEventListener('click', () => {
+    updateLayout((s) => toggleExplorer(s));
+  });
+  els.btnHeaderExplorer?.addEventListener('click', () => {
+    updateLayout((s) => toggleExplorer(s));
+  });
+  els.btnToggleTerminal?.addEventListener('click', () => {
+    const wasOpen = state.layout.terminalOpen;
+    updateLayout((s) => toggleTerminal(s));
+    if (!wasOpen && shouldAutoFocusTerminal(state.layout)) {
+      state.terminalView?.focus();
+    }
+  });
+  els.btnHideTerminal?.addEventListener('click', () => {
+    updateLayout((s) => toggleTerminal(s, false));
+  });
+  els.btnToggleGuide?.addEventListener('click', () => {
+    updateLayout((s) => toggleGuide(s));
+  });
+  els.btnCloseGuide?.addEventListener('click', () => {
+    updateLayout((s) => toggleGuide(s, false));
+  });
+  els.drawerBackdrop?.addEventListener('click', () => {
+    updateLayout((s) => toggleGuide(toggleExplorer(s, false), false));
+  });
 
   els.btnRefreshFiles?.addEventListener('click', () => {
     void refreshWorkspace();
@@ -879,6 +980,9 @@ function initLinuxVmWorkspace() {
       els.dialogTestResults?.classList.add('hidden');
       els.dialogNewFile?.classList.add('hidden');
       els.dialogResetConfirm?.classList.add('hidden');
+      if (state.layout.viewport.isCompactWidth && (state.layout.explorerOpen || state.layout.guideOpen)) {
+        updateLayout((s) => toggleGuide(toggleExplorer(s, false), false));
+      }
       return;
     }
 
@@ -902,7 +1006,17 @@ function initLinuxVmWorkspace() {
 
     if (e.ctrlKey && e.key.toLowerCase() === 'b') {
       e.preventDefault();
-      toggleExplorer();
+      updateLayout((s) => toggleExplorer(s));
+      return;
+    }
+
+    if (e.ctrlKey && (e.key === '`' || e.code === 'Backquote')) {
+      e.preventDefault();
+      const wasOpen = state.layout.terminalOpen;
+      updateLayout((s) => toggleTerminal(s));
+      if (!wasOpen && shouldAutoFocusTerminal(state.layout)) {
+        state.terminalView?.focus();
+      }
       return;
     }
 
@@ -918,18 +1032,8 @@ function initLinuxVmWorkspace() {
     }
   });
 
-  // Sync explorer auto-collapse media query on small landscape screens
-  const landscapeMq = window.matchMedia('screen and (max-height: 450px) and (orientation: landscape)');
-  if (landscapeMq.matches) {
-    state.explorerCollapsed = true;
-    if (els.btnToggleExplorer) els.btnToggleExplorer.textContent = '📁';
-  }
-  landscapeMq.addEventListener('change', (e) => {
-    if (e.matches && !state.explorerCollapsed) {
-      state.explorerCollapsed = true;
-      if (els.btnToggleExplorer) els.btnToggleExplorer.textContent = '📁';
-      els.panelExplorer?.classList.remove('explorer-expanded-override');
-    }
+  window.addEventListener('resize', () => {
+    updateLayout((s) => onViewportResized(s, readViewport()));
   });
 
   // Initialize VT100 terminal view immediately
@@ -946,11 +1050,12 @@ function initLinuxVmWorkspace() {
     },
     onTitle: (title) => {
       if (els.terminalTitle) {
-        els.terminalTitle.textContent = title ? `💻 ${title}` : '💻 Linux Terminal (bash)';
+        els.terminalTitle.textContent = title ? `💻 ${title}` : '💻 Terminal';
       }
     },
   });
 
+  applyLayout(null);
   updateLineNumbers();
 
   // Boot sequence
@@ -1025,15 +1130,17 @@ function initLinuxVmWorkspace() {
 
       if (els.bootProgress) els.bootProgress.style.width = '100%';
       els.loadingOverlay?.classList.add('hidden');
-      setStatus('LINUX READY', 'status-ready');
-      state.terminalView.focus();
+      setStatus('READY', 'status-ready');
+      if (shouldAutoFocusTerminal(state.layout)) {
+        state.terminalView.focus();
+      }
     } catch (err) {
-      console.error('Linux VM boot error:', err);
+      console.error('Workspace boot error:', err);
       setStatus('BOOT ERROR', 'status-waiting');
       if (els.loadingDetails) {
         els.loadingDetails.textContent = `Boot failed: ${err?.message ?? String(err)}`;
       }
-      showUnsupportedBanner([`Linux VM failed to boot: ${err?.message ?? String(err)}`]);
+      showUnsupportedBanner([`Workspace failed to start: ${err?.message ?? String(err)}`]);
     }
   })();
 }

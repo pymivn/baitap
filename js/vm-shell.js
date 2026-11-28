@@ -105,7 +105,7 @@ if not os.path.exists(bashrc_path):
             'case $- in\n'
             '  *i*)\n'
             '    echo ""\n'
-            '    echo "BaiTapPyMi Linux VM (Alpine + Python3 + Git)"\n'
+            '    echo "BaiTapPyMi (Python 3 + Git)"\n'
             '    echo "Type: cd pyfml   (repo ready at ~/pyfml; see guide.rst for instructions)"\n'
             '    echo ""\n'
             '    ;;\n'
